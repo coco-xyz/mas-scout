@@ -5,7 +5,8 @@
  * 输出：自动化外联序列 + 人工审核门控
  */
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+import { callLLM } from '../shared/llm.js';
+
 const CONFIDENCE_THRESHOLD = 0.7;
 
 /**
@@ -25,46 +26,6 @@ const REGULATORY_HOOKS = {
     products: ['Artemis (KYC)'],
   },
 };
-
-/**
- * Call Claude API to generate content
- * @param {string} systemPrompt
- * @param {string} userPrompt
- * @returns {Promise<string>}
- */
-async function callLLM(systemPrompt, userPrompt) {
-  if (!ANTHROPIC_API_KEY) {
-    return null; // Caller handles fallback
-  }
-
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
-    });
-
-    if (!res.ok) {
-      console.error(`[outreach] Claude API error: ${res.status}`);
-      return null;
-    }
-
-    const data = await res.json();
-    return data.content?.[0]?.text || null;
-  } catch (err) {
-    console.error(`[outreach] Claude API network error: ${err.message}`);
-    return null;
-  }
-}
 
 /**
  * 计算 prospect 置信度分数

@@ -83,8 +83,11 @@ describe('createSequence', () => {
       licenseType: 'Capital Markets Services Licensee',
     };
 
-    const sequence = await createSequence(prospect);
-    assert.strictEqual(sequence.length, 4, 'sequence should have 4 steps');
+    const result = await createSequence(prospect);
+    assert.ok(result.sequence, 'result should have sequence');
+    assert.strictEqual(result.sequence.length, 4, 'sequence should have 4 steps');
+    assert.ok(typeof result.confidence === 'number', 'should have confidence');
+    assert.ok(typeof result.requiresReview === 'boolean', 'should have requiresReview');
   });
 
   it('should have the correct channel and day structure', async () => {
@@ -94,19 +97,20 @@ describe('createSequence', () => {
       licenseType: 'Standard Payment Institution',
     };
 
-    const sequence = await createSequence(prospect);
+    const result = await createSequence(prospect);
+    const sequence = result.sequence;
 
     // Step 1: email on day 1
     assert.strictEqual(sequence[0].channel, 'email');
     assert.strictEqual(sequence[0].day, 1);
     assert.ok(typeof sequence[0].content === 'string');
 
-    // Step 2: linkedin on day 3
-    assert.strictEqual(sequence[1].channel, 'linkedin');
+    // Step 2: linkedin_connect on day 3
+    assert.strictEqual(sequence[1].channel, 'linkedin_connect');
     assert.strictEqual(sequence[1].day, 3);
 
-    // Step 3: linkedin on day 7
-    assert.strictEqual(sequence[2].channel, 'linkedin');
+    // Step 3: linkedin_message on day 7
+    assert.strictEqual(sequence[2].channel, 'linkedin_message');
     assert.strictEqual(sequence[2].day, 7);
 
     // Step 4: email on day 10
@@ -121,9 +125,9 @@ describe('createSequence', () => {
       licenseType: 'Major Payment Institution',
     };
 
-    const sequence = await createSequence(prospect);
+    const result = await createSequence(prospect);
     assert.ok(
-      sequence[0].content.includes('Unique Name Corp'),
+      result.sequence[0].content.includes('Unique Name Corp'),
       'first step email content should contain company name'
     );
   });

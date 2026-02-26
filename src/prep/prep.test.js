@@ -11,52 +11,59 @@ describe('classifyReply', () => {
 
   it('should classify "interested in a demo" as positive', async () => {
     const result = await classifyReply('I am interested in a demo');
-    assert.strictEqual(result, 'positive');
+    assert.strictEqual(result.category, 'positive');
+    assert.ok(result.confidence > 0, 'confidence should be > 0');
   });
 
   it('should classify "schedule a call" as positive', async () => {
     const result = await classifyReply('Can we schedule a call next week?');
-    assert.strictEqual(result, 'positive');
+    assert.strictEqual(result.category, 'positive');
   });
 
   it('should classify "not interested" as negative', async () => {
     const result = await classifyReply('We are not interested at this time');
-    assert.strictEqual(result, 'negative');
+    assert.strictEqual(result.category, 'negative');
   });
 
   it('should classify "please unsubscribe me" as negative', async () => {
     const result = await classifyReply('Please unsubscribe me from this list');
-    assert.strictEqual(result, 'negative');
+    assert.strictEqual(result.category, 'negative');
   });
 
   it('should classify "please remove me" as negative', async () => {
     const result = await classifyReply('Please remove me from your mailing list');
-    assert.strictEqual(result, 'negative');
+    assert.strictEqual(result.category, 'negative');
   });
 
   it('should classify "already have a solution" as objection', async () => {
     const result = await classifyReply('We already have a solution in place');
-    assert.strictEqual(result, 'objection');
+    assert.strictEqual(result.category, 'objection');
   });
 
   it('should classify "no budget right now" as objection', async () => {
     const result = await classifyReply('We have no budget for this right now');
-    assert.strictEqual(result, 'objection');
+    assert.strictEqual(result.category, 'objection');
   });
 
   it('should classify "maybe later" as objection', async () => {
     const result = await classifyReply('Maybe later this quarter');
-    assert.strictEqual(result, 'objection');
+    assert.strictEqual(result.category, 'objection');
   });
 
   it('should classify "thanks for reaching out" as neutral', async () => {
     const result = await classifyReply('Thanks for reaching out');
-    assert.strictEqual(result, 'neutral');
+    assert.strictEqual(result.category, 'neutral');
   });
 
   it('should classify ambiguous text as neutral', async () => {
     const result = await classifyReply('Received your message, will review.');
-    assert.strictEqual(result, 'neutral');
+    assert.strictEqual(result.category, 'neutral');
+  });
+
+  it('should return suggestedAction', async () => {
+    const result = await classifyReply('I am interested in a demo');
+    assert.ok(typeof result.suggestedAction === 'string', 'should have suggestedAction');
+    assert.ok(result.suggestedAction.length > 0, 'suggestedAction should not be empty');
   });
 });
 
@@ -119,5 +126,17 @@ describe('generateBrief', () => {
     const brief = await generateBrief(prospect);
     assert.ok(typeof brief === 'string', 'should still return a string');
     assert.ok(brief.includes('Minimal Corp'), 'brief should contain the company name');
+  });
+
+  it('should include product recommendations', async () => {
+    const prospect = {
+      company: { name: 'Gamma Finance' },
+      contact: { name: 'Kim', title: 'Compliance Manager' },
+      licenseType: 'Capital Markets Services Licensee',
+      enrichedData: {},
+    };
+
+    const brief = await generateBrief(prospect);
+    assert.ok(brief.includes('Artemis'), 'brief should mention Artemis product');
   });
 });
