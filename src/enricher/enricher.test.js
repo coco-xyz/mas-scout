@@ -1,6 +1,6 @@
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert';
-import { normalizeCompanyName, resultMentionsCompany, parseLinkedInResult } from './scraper.js';
+import { normalizeCompanyName, resultMentionsCompany, parseLinkedInResult, verifyContactCompany, extractEmployerFromSnippet } from './scraper.js';
 
 describe('rankContacts', () => {
   let rankContacts;
@@ -154,16 +154,20 @@ describe('normalizeCompanyName', () => {
 });
 
 describe('resultMentionsCompany', () => {
-  it('should match when company keyword is in title', () => {
+  it('should match when company keyword is in SERP result (realistic format)', () => {
     assert.strictEqual(
-      resultMentionsCompany('HashKey Group CEO', 'Some snippet', 'HASHKEY DIGITAL ASSET GROUP PTE. LTD.'),
+      resultMentionsCompany(
+        'Justin Ng - MLRO - HashKey Capital | LinkedIn',
+        'Money Laundering Reporting Officer at HashKey Capital',
+        'HASHKEY DIGITAL ASSET GROUP PTE. LTD.'
+      ),
       true
     );
   });
 
   it('should not match unrelated result', () => {
     assert.strictEqual(
-      resultMentionsCompany('Random Person at Google', 'Works at Google', 'HASHKEY DIGITAL ASSET GROUP PTE. LTD.'),
+      resultMentionsCompany('Random Person - VP - Google | LinkedIn', 'Works at Google', 'HASHKEY DIGITAL ASSET GROUP PTE. LTD.'),
       false
     );
   });
@@ -193,5 +197,74 @@ describe('parseLinkedInResult', () => {
   it('should return null for empty title', () => {
     const result = parseLinkedInResult('', '', 'Test');
     assert.strictEqual(result, null);
+  });
+
+  it('should extract employer from 3-part title', () => {
+    const result = parseLinkedInResult(
+      'John Doe - VP Compliance - JPMorgan | LinkedIn',
+      '',
+      'Apollo Management'
+    );
+    assert.strictEqual(result.name, 'John Doe');
+    assert.strictEqual(result.title, 'VP Compliance');
+    assert.strictEqual(result.employer, 'JPMorgan');
+  });
+});
+
+describe('resultMentionsCompany — name collision', () => {
+  it('should not match when only contact name matches company keyword', () => {
+    // "Ariana Lobo" name contains "ariana" which is the keyword for "ARIANA INVESTMENT"
+    assert.strictEqual(
+      resultMentionsCompany(
+        'Ariana Lobo - Compliance Manager - XYZ Corp | LinkedIn',
+        'Works at XYZ Corp',
+        'ARIANA INVESTMENT PTE. LTD.'
+      ),
+      false
+    );
+  });
+
+  it('should still match when company keyword appears outside contact name', () => {
+    assert.strictEqual(
+      resultMentionsCompany(
+        'John Smith - CCO - Ariana Investment | LinkedIn',
+        'Chief Compliance Officer at Ariana Investment',
+        'ARIANA INVESTMENT PTE. LTD.'
+      ),
+      true
+    );
+  });
+});
+
+describe('verifyContactCompany', () => {
+  it('should return true when employer matches target', () => {
+    assert.strictEqual(
+      verifyContactCompany({ name: 'John', title: 'CCO', employer: 'Apollo Management' }, 'APOLLO MANAGEMENT INTERNATIONAL PTE LTD'),
+      true
+    );
+  });
+
+  it('should return false when employer is a different company', () => {
+    assert.strictEqual(
+      verifyContactCompany({ name: 'John', title: 'VP', employer: 'JPMorgan Chase' }, 'APOLLO MANAGEMENT INTERNATIONAL PTE LTD'),
+      false
+    );
+  });
+
+  it('should return true when employer is null (benefit of doubt)', () => {
+    assert.strictEqual(
+      verifyContactCompany({ name: 'John', title: 'CCO', employer: null }, 'APOLLO MANAGEMENT PTE LTD'),
+      true
+    );
+  });
+});
+
+describe('extractEmployerFromSnippet', () => {
+  it('should extract "at Company" pattern', () => {
+    assert.strictEqual(extractEmployerFromSnippet('Chief Compliance Officer at JPMorgan Chase.'), 'JPMorgan Chase');
+  });
+
+  it('should return null for empty snippet', () => {
+    assert.strictEqual(extractEmployerFromSnippet(''), null);
   });
 });

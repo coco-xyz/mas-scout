@@ -249,6 +249,44 @@ async function main() {
     save(OUTREACH_FILE, existingOutreach);
   }
 
+  // Cross-company dedup: flag contacts that appear in multiple companies
+  const contactIndex = new Map(); // linkedInUrl or name+title → [company names]
+  for (const result of enrichedMap.values()) {
+    if (result.status !== 'enriched') continue;
+    for (const contact of result.contacts) {
+      const key = contact.linkedInUrl || `${contact.name.toLowerCase()}|${contact.title.toLowerCase()}`;
+      if (!contactIndex.has(key)) contactIndex.set(key, []);
+      contactIndex.get(key).push(result.company);
+    }
+  }
+
+  let dupCount = 0;
+  for (const [key, companies] of contactIndex) {
+    if (companies.length <= 1) continue;
+    dupCount++;
+    console.log(`[pipeline] 跨公司重复: "${key}" 出现在 ${companies.length} 家: ${companies.join(', ')}`);
+    // Mark duplicates as low_confidence (keep the first occurrence as-is)
+    const keepCompany = companies[0];
+    for (const companyName of companies.slice(1)) {
+      const result = enrichedMap.get(companyName);
+      if (!result) continue;
+      for (const contact of result.contacts) {
+        const contactKey = contact.linkedInUrl || `${contact.name.toLowerCase()}|${contact.title.toLowerCase()}`;
+        if (contactKey === key) {
+          contact.lowConfidence = true;
+          contact.duplicateOf = keepCompany;
+        }
+      }
+    }
+  }
+
+  if (dupCount > 0) {
+    console.log(`[pipeline] 标记 ${dupCount} 组跨公司重复联系人`);
+    // Re-save with dedup flags
+    existingEnrichment.results = Array.from(enrichedMap.values());
+    save(ENRICHMENT_FILE, existingEnrichment);
+  }
+
   console.log(`\n[pipeline] Done. Enriched: ${enriched}, Failed: ${failed}`);
   console.log(`[pipeline] Results saved to:\n  ${ENRICHMENT_FILE}\n  ${OUTREACH_FILE}`);
 }
