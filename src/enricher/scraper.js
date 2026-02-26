@@ -363,7 +363,7 @@ async function scrapeLinkedInCompanyPage(page, linkedInUrl) {
         try {
           const data = JSON.parse(script.textContent);
           // LinkedIn uses Organization or Corporation type
-          if (data['@type'] === 'Organization' || data['@type'] === 'Corporation' || data.name) {
+          if (data['@type'] === 'Organization' || data['@type'] === 'Corporation') {
             result.description = data.description || result.description;
             result.industry = data.industry || result.industry;
             result.website = data.url || result.website;
