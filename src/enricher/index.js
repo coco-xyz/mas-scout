@@ -3,10 +3,12 @@
  *
  * 输入：新获牌公司名称
  * 输出：决策层联系人 + 公司背景
+ *
+ * 优先使用 browser-based scraping（Google SERP + 公司网站），
+ * CDP 不可用时 fallback 到 mock 数据。
  */
 
-const APOLLO_BASE = 'https://api.apollo.io/v1';
-const APOLLO_API_KEY = process.env.APOLLO_API_KEY || '';
+import { enrichWithBrowser } from './scraper.js';
 
 const COMPLIANCE_TITLES = [
   'Chief Compliance Officer',
@@ -28,46 +30,14 @@ const MOCK_CONTACTS = {
   ],
 };
 
-/**
- * 通过 Apollo.io 搜索公司联系人
- * @param {string} companyName
- * @returns {Promise<Array<{name: string, title: string, email: string, linkedInUrl: string}>>}
- */
-async function searchContacts(companyName) {
-  console.log(`[enricher] 搜索联系人: ${companyName}`);
-
-  if (!APOLLO_API_KEY) {
-    console.log('[enricher] Apollo API key 未配置，使用 mock 数据');
-    return MOCK_CONTACTS[companyName] || MOCK_CONTACTS._default;
-  }
-
-  const res = await fetch(`${APOLLO_BASE}/mixed_people/search`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Api-Key': APOLLO_API_KEY,
-    },
-    body: JSON.stringify({
-      q_organization_name: companyName,
-      person_titles: COMPLIANCE_TITLES,
-      page: 1,
-      per_page: 10,
-    }),
-  });
-
-  if (!res.ok) {
-    console.error(`[enricher] Apollo API error: ${res.status}`);
-    return MOCK_CONTACTS._default;
-  }
-
-  const data = await res.json();
-  return (data.people || []).map(p => ({
-    name: p.name || `${p.first_name} ${p.last_name}`,
-    title: p.title || '',
-    email: p.email || '',
-    linkedInUrl: p.linkedin_url || '',
-  }));
-}
+const MOCK_COMPANY_INFO = {
+  _default: {
+    headcount: 85,
+    fundingStage: 'Series A',
+    techStack: ['Python', 'AWS', 'PostgreSQL'],
+    recentNews: ['Obtained MAS CMS license in Feb 2026'],
+  },
+};
 
 /**
  * 对联系人按决策层优先级排序
@@ -96,83 +66,57 @@ function rankContacts(contacts) {
     .sort((a, b) => a.priority - b.priority);
 }
 
-const MOCK_COMPANY_INFO = {
-  _default: {
-    headcount: 85,
-    fundingStage: 'Series A',
-    techStack: ['Python', 'AWS', 'PostgreSQL'],
-    recentNews: ['Obtained MAS CMS license in Feb 2026'],
-  },
-};
+/**
+ * 通过浏览器搜索公司联系人（Google SERP + 公司网站）
+ * @param {string} companyName
+ * @returns {Promise<Array>}
+ */
+async function searchContacts(companyName) {
+  console.log(`[enricher] 搜索联系人: ${companyName}`);
+  // Browser-based search is handled in enrich() flow
+  // This function provides mock fallback for direct calls
+  return MOCK_CONTACTS[companyName] || MOCK_CONTACTS._default;
+}
 
 /**
  * 补全公司背景信息
  * @param {string} companyName
  * @param {string} website
- * @returns {Promise<{headcount: number, fundingStage: string, techStack: string[], recentNews: string[]}>}
+ * @returns {Promise<object>}
  */
 async function enrichCompany(companyName, website) {
   console.log(`[enricher] 补全公司信息: ${companyName}`);
-
-  if (!APOLLO_API_KEY) {
-    console.log('[enricher] Apollo API key 未配置，使用 mock 数据');
-    return MOCK_COMPANY_INFO[companyName] || MOCK_COMPANY_INFO._default;
-  }
-
-  // Try domain-based enrichment
-  const domain = website?.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-  if (domain) {
-    const domainRes = await fetch(`${APOLLO_BASE}/organizations/enrich?domain=${encodeURIComponent(domain)}`, {
-      headers: { 'X-Api-Key': APOLLO_API_KEY },
-    });
-
-    if (domainRes.ok) {
-      const org = (await domainRes.json()).organization || {};
-      return {
-        headcount: org.estimated_num_employees || 0,
-        fundingStage: org.latest_funding_stage || 'unknown',
-        techStack: org.technologies || [],
-        recentNews: org.news_articles?.slice(0, 3).map(a => a.title) || [],
-      };
-    }
-  }
-
-  // Fallback: search by name
-  const searchRes = await fetch(`${APOLLO_BASE}/mixed_companies/search`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Api-Key': APOLLO_API_KEY,
-    },
-    body: JSON.stringify({
-      q_organization_name: companyName,
-      page: 1,
-      per_page: 1,
-    }),
-  });
-
-  if (searchRes.ok) {
-    const orgs = (await searchRes.json()).organizations || [];
-    if (orgs.length > 0) {
-      const org = orgs[0];
-      return {
-        headcount: org.estimated_num_employees || 0,
-        fundingStage: org.latest_funding_stage || 'unknown',
-        techStack: org.technologies || [],
-        recentNews: [],
-      };
-    }
-  }
-
-  return MOCK_COMPANY_INFO._default;
+  // Browser-based enrichment is handled in enrich() flow
+  return MOCK_COMPANY_INFO[companyName] || MOCK_COMPANY_INFO._default;
 }
 
 /**
  * 完整的 enrich 流程
- * @param {{ name: string, website: string }} company
+ * 优先使用浏览器抓取，CDP 连接失败时 fallback 到 mock
+ *
+ * @param {{ name: string, website: string, address?: string, licenseTypes?: string[] }} company
  * @returns {Promise<{ contacts: Array, companyInfo: object }>}
  */
 async function enrich(company) {
+  // Try browser-based enrichment first
+  try {
+    console.log(`[enricher] 尝试浏览器抓取: ${company.name}`);
+    const result = await enrichWithBrowser(company);
+
+    if (result.contacts.length > 0) {
+      console.log(`[enricher] 浏览器抓取成功: ${result.contacts.length} 个联系人`);
+      return {
+        contacts: rankContacts(result.contacts),
+        companyInfo: result.companyInfo,
+      };
+    }
+
+    console.log('[enricher] 浏览器抓取无结果，使用 mock 数据');
+  } catch (err) {
+    console.log(`[enricher] 浏览器不可用 (${err.message})，使用 mock 数据`);
+  }
+
+  // Fallback to mock
   const [contacts, companyInfo] = await Promise.all([
     searchContacts(company.name),
     enrichCompany(company.name, company.website),
