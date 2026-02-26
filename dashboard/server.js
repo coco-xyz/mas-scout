@@ -138,78 +138,98 @@ const server = createServer((req, res) => {
     return res.end(JSON.stringify({ report: report || 'No report available.' }));
   }
 
-  // Enrichment pipeline — mock data for now
+  // Enrichment pipeline — reads from data/enrichment.json (written by src/pipeline.js)
   if (path === '/api/enrichment') {
+    const enrichmentFile = join(DATA_DIR, 'enrichment.json');
     const snapshot = loadLatestSnapshot();
+
+    if (existsSync(enrichmentFile)) {
+      // Real data from pipeline
+      const data = JSON.parse(readFileSync(enrichmentFile, 'utf-8'));
+      const enrichment = data.results || [];
+
+      // Merge with snapshot: mark un-enriched institutions as "pending"
+      const enrichedNames = new Set(enrichment.map(e => e.company));
+      const pending = (snapshot?.institutions || [])
+        .filter(i => !enrichedNames.has(i.name))
+        .map(i => ({
+          company: i.name,
+          licenseTypes: i.licenseTypes,
+          status: 'pending',
+          contacts: [],
+          companyInfo: null,
+          enrichedAt: null,
+        }));
+
+      const all = [...enrichment, ...pending];
+      const counts = { enriched: 0, no_contacts: 0, pending: 0, failed: 0 };
+      for (const e of all) counts[e.status] = (counts[e.status] || 0) + 1;
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        enrichment: all,
+        counts,
+        total: all.length,
+        lastRun: data.lastRun,
+        source: 'pipeline',
+      }));
+    }
+
+    // No pipeline data yet — empty state
     if (!snapshot) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'No data' }));
     }
 
-    const statuses = ['enriched', 'pending', 'failed', 'skipped'];
-    const titles = ['Chief Compliance Officer', 'MLRO', 'Head of Compliance', 'VP Compliance', 'Compliance Director'];
-    const enrichment = snapshot.institutions.slice(0, 80).map((inst, i) => {
-      const status = statuses[i % 7 === 0 ? 2 : i % 5 === 0 ? 3 : i < 30 ? 0 : 1];
-      const contacts = status === 'enriched' ? [
-        { name: `Contact ${i + 1}A`, title: titles[i % titles.length], email: `contact${i}a@example.com`, linkedInUrl: `https://linkedin.com/in/contact${i}a` },
-        ...(i % 3 === 0 ? [{ name: `Contact ${i + 1}B`, title: titles[(i + 2) % titles.length], email: `contact${i}b@example.com`, linkedInUrl: `https://linkedin.com/in/contact${i}b` }] : []),
-      ] : [];
-
-      return {
-        company: inst.name,
-        licenseTypes: inst.licenseTypes,
-        status,
-        contacts,
-        companyInfo: status === 'enriched' ? {
-          headcount: 20 + (i * 7) % 500,
-          website: inst.website || null,
-        } : null,
-        enrichedAt: status === 'enriched' ? new Date(Date.now() - i * 3600000).toISOString() : null,
-      };
-    });
-
-    const counts = { enriched: 0, pending: 0, failed: 0, skipped: 0 };
-    for (const e of enrichment) counts[e.status]++;
+    const pending = snapshot.institutions.map(i => ({
+      company: i.name,
+      licenseTypes: i.licenseTypes,
+      status: 'pending',
+      contacts: [],
+      companyInfo: null,
+      enrichedAt: null,
+    }));
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ enrichment, counts, total: enrichment.length }));
+    return res.end(JSON.stringify({
+      enrichment: pending,
+      counts: { enriched: 0, pending: pending.length, failed: 0 },
+      total: pending.length,
+      lastRun: null,
+      source: 'none',
+    }));
   }
 
-  // Outreach pipeline — mock data for now
+  // Outreach pipeline — reads from data/outreach.json (written by src/pipeline.js)
   if (path === '/api/outreach') {
-    const channels = ['email', 'linkedin_connect', 'linkedin_message', 'email'];
-    const days = [1, 3, 7, 10];
-    const stepStatuses = ['sent', 'ready', 'pending_review', 'draft'];
+    const outreachFile = join(DATA_DIR, 'outreach.json');
 
-    const prospects = [];
-    for (let i = 0; i < 25; i++) {
-      const confidence = 0.4 + (i * 0.025);
-      const requiresReview = confidence < 0.7;
-      const sequenceProgress = i < 8 ? 4 : i < 15 ? 2 : 1;
+    if (existsSync(outreachFile)) {
+      const data = JSON.parse(readFileSync(outreachFile, 'utf-8'));
+      const prospects = data.prospects || [];
 
-      prospects.push({
-        id: i + 1,
-        contact: { name: `Contact ${i + 1}`, title: ['CCO', 'MLRO', 'Head of Compliance', 'VP Compliance'][i % 4], email: `contact${i + 1}@example.com` },
-        company: `Company ${String.fromCharCode(65 + (i % 26))} Pte. Ltd.`,
-        licenseType: ['Capital Markets Services Licensee', 'Major Payment Institution', 'Standard Payment Institution'][i % 3],
-        confidence: Math.min(confidence, 1),
-        requiresReview,
-        sequence: channels.map((ch, si) => ({
-          channel: ch,
-          day: days[si],
-          status: si < sequenceProgress ? (requiresReview ? 'pending_review' : stepStatuses[si % stepStatuses.length]) : 'draft',
-        })),
-        createdAt: new Date(Date.now() - i * 86400000).toISOString(),
-      });
+      const summary = { total: prospects.length, sent: 0, ready: 0, pending_review: 0, draft: 0 };
+      for (const p of prospects) {
+        for (const s of p.sequence || []) summary[s.status] = (summary[s.status] || 0) + 1;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({
+        prospects,
+        summary,
+        lastRun: data.lastRun,
+        source: 'pipeline',
+      }));
     }
 
-    const summary = { total: prospects.length, sent: 0, ready: 0, pending_review: 0, draft: 0 };
-    for (const p of prospects) {
-      for (const s of p.sequence) summary[s.status] = (summary[s.status] || 0) + 1;
-    }
-
+    // No pipeline data yet — empty state
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ prospects, summary }));
+    return res.end(JSON.stringify({
+      prospects: [],
+      summary: { total: 0, sent: 0, ready: 0, pending_review: 0, draft: 0 },
+      lastRun: null,
+      source: 'none',
+    }));
   }
 
   // Static files

@@ -6,6 +6,8 @@
   "scripts": {
     "watch": "node src/watcher/index.js",
     "watch:diff": "node src/watcher/index.js --diff-only",
+    "pipeline": "node src/pipeline.js",
+    "pipeline:all": "node src/pipeline.js --all",
     "dashboard": "node dashboard/server.js",
     "test": "node --test src/**/*.test.js",
     "lint": "eslint ."
