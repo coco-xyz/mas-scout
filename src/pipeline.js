@@ -7,9 +7,10 @@
  * Reads from latest watcher snapshot, saves results to data/ for dashboard consumption.
  *
  * Usage:
- *   node src/pipeline.js                  # enrich new institutions from latest diff
- *   node src/pipeline.js --all            # enrich all institutions (full run)
- *   node src/pipeline.js --company "Name" # enrich a single company
+ *   node src/pipeline.js                        # enrich new institutions from latest diff
+ *   node src/pipeline.js --all                  # enrich all institutions (full run)
+ *   node src/pipeline.js --all --limit 20       # enrich first 20 institutions
+ *   node src/pipeline.js --company "Name"       # enrich a single company
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
@@ -142,6 +143,7 @@ async function main() {
   const args = process.argv.slice(2);
   const runAll = args.includes('--all');
   const singleCompany = args.includes('--company') ? args[args.indexOf('--company') + 1] : null;
+  const limit = args.includes('--limit') ? parseInt(args[args.indexOf('--limit') + 1], 10) : 0;
 
   console.log('[pipeline] MAS Scout Pipeline starting');
 
@@ -172,6 +174,12 @@ async function main() {
       targets = snapshot.institutions.filter(i => !prevNames.has(i.name));
       console.log(`[pipeline] Diff mode: ${targets.length} new institutions`);
     }
+  }
+
+  // Apply limit
+  if (limit > 0 && targets.length > limit) {
+    console.log(`[pipeline] Limiting to ${limit} of ${targets.length}`);
+    targets = targets.slice(0, limit);
   }
 
   if (targets.length === 0) {
