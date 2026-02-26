@@ -1,7 +1,7 @@
 /**
  * Browser-based enrichment scraper
  *
- * Uses Google SERP to find:
+ * Uses DuckDuckGo SERP to find:
  * 1. Company LinkedIn page
  * 2. Compliance officers' LinkedIn profiles
  * 3. Company website team/about pages
@@ -14,6 +14,17 @@ import { chromium } from 'playwright-core';
 
 const CDP_PORT = process.env.CDP_PORT || 9222;
 const SEARCH_DELAY = 3000; // ms between searches to avoid rate limits
+
+// Legal suffixes to strip from company names for better search results
+const LEGAL_SUFFIXES = /\s*\b(PTE\.?\s*LTD\.?|PRIVATE\s+LIMITED|LIMITED|LTD\.?|INC\.?|CORP\.?|LLC|L\.?P\.?|S\.?A\.?|GMBH|PTY\.?\s*LTD\.?|CO\.?\s*LTD\.?)\s*\.?\s*$/i;
+
+/**
+ * Normalize company name for search — remove legal suffixes and clean up
+ * "HASHKEY DIGITAL ASSET GROUP PTE. LTD." → "HASHKEY DIGITAL ASSET GROUP"
+ */
+function normalizeCompanyName(name) {
+  return name.replace(LEGAL_SUFFIXES, '').replace(/\s*\(SINGAPORE\)\s*/i, ' ').trim();
+}
 
 /**
  * Connect to existing Chrome via CDP
@@ -47,21 +58,25 @@ async function webSearch(page, query) {
   const results = await page.evaluate(() => {
     const items = [];
 
-    // DDG result selectors (they change occasionally)
-    const resultEls = document.querySelectorAll(
-      '[data-testid="result"], .react-results--main article, .nrn-react-div article, li[data-layout="organic"]'
-    );
+    // DDG result container — use a single authoritative selector to avoid duplicates
+    const resultEls = document.querySelectorAll('[data-testid="result"]')
+      || document.querySelectorAll('.react-results--main article')
+      || document.querySelectorAll('li[data-layout="organic"]');
 
     for (const el of resultEls) {
-      const linkEl = el.querySelector('a[href]');
+      // Use data-testid selectors for the actual external links (not DDG internal links)
+      const titleLinkEl = el.querySelector('a[data-testid="result-title-a"]');
+      const urlLinkEl = el.querySelector('a[data-testid="result-extras-url-link"]');
+      const linkEl = titleLinkEl || urlLinkEl || el.querySelector('a[href^="http"]');
+
       const titleEl = el.querySelector('h2, [data-testid="result-title"]');
-      const snippetEl = el.querySelector('[data-result="snippet"], .result__snippet, span.kY2IgmnCmOGjharHErah');
+      const snippetEl = el.querySelector('[data-result="snippet"], span.kY2IgmnCmOGjharHErah, .result__snippet');
 
       if (!linkEl) continue;
 
       const href = linkEl.getAttribute('href');
-      // Skip DDG internal links
-      if (!href || href.startsWith('//duckduckgo') || href.startsWith('https://duckduckgo')) continue;
+      // Skip DDG internal links and relative URLs
+      if (!href || !href.startsWith('http') || href.includes('duckduckgo.com')) continue;
 
       items.push({
         title: titleEl?.textContent?.trim() || '',
@@ -82,7 +97,10 @@ async function webSearch(page, query) {
  * @returns {Promise<string|null>} LinkedIn company URL
  */
 async function findCompanyLinkedIn(page, companyName) {
-  const query = `"${companyName}" site:linkedin.com/company Singapore`;
+  const clean = normalizeCompanyName(companyName);
+
+  // Try without quotes first — more results on DDG
+  const query = `${clean} site:linkedin.com/company Singapore`;
   const results = await webSearch(page, query);
 
   for (const r of results) {
@@ -101,30 +119,29 @@ async function findCompanyLinkedIn(page, companyName) {
  */
 async function findComplianceContacts(page, companyName) {
   const contacts = [];
+  const clean = normalizeCompanyName(companyName);
 
-  // Search for compliance officers
-  const query = `"${companyName}" ("compliance" OR "CCO" OR "MLRO" OR "AML") site:linkedin.com/in Singapore`;
+  // Search for compliance officers — use unquoted name for broader DDG results
+  const query = `${clean} compliance OR CCO OR MLRO OR AML site:linkedin.com/in`;
   const results = await webSearch(page, query);
 
   for (const r of results) {
     if (!r.url.includes('linkedin.com/in/')) continue;
 
-    // Parse name and title from Google SERP snippet
-    // Google typically shows: "Name - Title - Company | LinkedIn"
     const parsed = parseLinkedInResult(r.title, r.snippet, companyName);
     if (parsed) {
       contacts.push({
         name: parsed.name,
         title: parsed.title,
-        linkedInUrl: r.url.split('?')[0], // clean URL
-        source: 'google-serp',
+        linkedInUrl: r.url.split('?')[0],
+        source: 'ddg-serp',
       });
     }
   }
 
   // If no compliance-specific results, search broader management
   if (contacts.length === 0) {
-    const broadQuery = `"${companyName}" ("director" OR "head" OR "chief" OR "VP") site:linkedin.com/in Singapore`;
+    const broadQuery = `${clean} director OR head OR chief OR VP site:linkedin.com/in`;
     await delay(SEARCH_DELAY);
     const broadResults = await webSearch(page, broadQuery);
 
@@ -136,7 +153,7 @@ async function findComplianceContacts(page, companyName) {
           name: parsed.name,
           title: parsed.title,
           linkedInUrl: r.url.split('?')[0],
-          source: 'google-serp-broad',
+          source: 'ddg-serp-broad',
         });
       }
     }
@@ -347,6 +364,7 @@ export {
   findComplianceContacts,
   scrapeCompanyWebsite,
   parseLinkedInResult,
+  normalizeCompanyName,
   connect,
   webSearch,
 };
