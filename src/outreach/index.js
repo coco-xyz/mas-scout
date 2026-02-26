@@ -37,28 +37,33 @@ async function callLLM(systemPrompt, userPrompt) {
     return null; // Caller handles fallback
   }
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
-  });
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    });
 
-  if (!res.ok) {
-    console.error(`[outreach] Claude API error: ${res.status}`);
+    if (!res.ok) {
+      console.error(`[outreach] Claude API error: ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    return data.content?.[0]?.text || null;
+  } catch (err) {
+    console.error(`[outreach] Claude API network error: ${err.message}`);
     return null;
   }
-
-  const data = await res.json();
-  return data.content?.[0]?.text || null;
 }
 
 /**

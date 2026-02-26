@@ -119,12 +119,6 @@ async function enrichCompany(companyName, website) {
     return MOCK_COMPANY_INFO[companyName] || MOCK_COMPANY_INFO._default;
   }
 
-  const res = await fetch(`${APOLLO_BASE}/organizations/enrich`, {
-    method: 'GET',
-    headers: { 'X-Api-Key': APOLLO_API_KEY },
-    // Apollo uses query params for org enrichment
-  });
-
   // Try domain-based enrichment
   const domain = website?.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
   if (domain) {
