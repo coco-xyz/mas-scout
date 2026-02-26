@@ -320,6 +320,116 @@ async function scrapeCompanyWebsite(page, websiteUrl) {
 }
 
 /**
+ * Scrape LinkedIn company page for public metadata (no login required).
+ * Extracts JSON-LD structured data + DOM fallbacks for:
+ * - description, industry, followers count, logo URL, website, headcount
+ *
+ * @param {object} page - Playwright page
+ * @param {string} linkedInUrl - LinkedIn company page URL
+ * @returns {Promise<object|null>} Metadata object or null on failure
+ */
+async function scrapeLinkedInCompanyPage(page, linkedInUrl) {
+  if (!linkedInUrl) return null;
+
+  try {
+    // Normalize URL — ensure we hit the main company page
+    const url = linkedInUrl.split('?')[0].replace(/\/+$/, '') + '/';
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+
+    // Check for login wall
+    const currentUrl = page.url();
+    if (currentUrl.includes('/login') || currentUrl.includes('/checkpoint') || currentUrl.includes('/authwall')) {
+      console.log('[enricher/scraper] LinkedIn authwall — skipping metadata scrape');
+      return null;
+    }
+
+    // Wait a moment for JS to render
+    await delay(2000);
+
+    const metadata = await page.evaluate(() => {
+      const result = {
+        description: null,
+        industry: null,
+        followers: null,
+        logoUrl: null,
+        website: null,
+        headcount: null,
+        specialties: null,
+      };
+
+      // 1. Try JSON-LD (most reliable source)
+      const jsonLdScripts = document.querySelectorAll('script[type="application/ld+json"]');
+      for (const script of jsonLdScripts) {
+        try {
+          const data = JSON.parse(script.textContent);
+          // LinkedIn uses Organization or Corporation type
+          if (data['@type'] === 'Organization' || data['@type'] === 'Corporation' || data.name) {
+            result.description = data.description || result.description;
+            result.industry = data.industry || result.industry;
+            result.website = data.url || result.website;
+            result.logoUrl = data.logo?.url || data.logo || result.logoUrl;
+            if (data.numberOfEmployees) {
+              result.headcount = data.numberOfEmployees.value || data.numberOfEmployees;
+            }
+          }
+        } catch { /* ignore parse errors */ }
+      }
+
+      // 2. DOM fallbacks for data not in JSON-LD
+      // Followers count — typically in a span near the top
+      if (!result.followers) {
+        const allText = document.body?.innerText || '';
+        const followersMatch = allText.match(/([\d,]+)\s+followers/i);
+        if (followersMatch) {
+          result.followers = parseInt(followersMatch[1].replace(/,/g, ''), 10);
+        }
+      }
+
+      // Industry — from meta tag or page text
+      if (!result.industry) {
+        const metaDesc = document.querySelector('meta[property="og:description"]');
+        if (metaDesc?.content) {
+          // og:description often contains "Industry · Location · Followers"
+          const parts = metaDesc.content.split('·').map(p => p.trim());
+          if (parts.length >= 1) result.industry = parts[0];
+        }
+      }
+
+      // Logo — from og:image
+      if (!result.logoUrl) {
+        const ogImage = document.querySelector('meta[property="og:image"]');
+        if (ogImage?.content) result.logoUrl = ogImage.content;
+      }
+
+      // Headcount — from page text (e.g., "1,001-5,000 employees")
+      if (!result.headcount) {
+        const allText = document.body?.innerText || '';
+        const empMatch = allText.match(/([\d,]+-[\d,]+)\s+employees/i) || allText.match(/([\d,]+)\s+employees/i);
+        if (empMatch) result.headcount = empMatch[1];
+      }
+
+      return result;
+    });
+
+    // Filter out empty values
+    const cleaned = {};
+    for (const [key, value] of Object.entries(metadata)) {
+      if (value !== null && value !== undefined && value !== '') {
+        cleaned[key] = value;
+      }
+    }
+
+    if (Object.keys(cleaned).length === 0) return null;
+
+    console.log(`[enricher/scraper] LinkedIn metadata: ${Object.keys(cleaned).join(', ')}`);
+    return cleaned;
+  } catch (err) {
+    console.log(`[enricher/scraper] LinkedIn metadata scrape failed: ${err.message}`);
+    return null;
+  }
+}
+
+/**
  * Full browser-based enrichment for a company
  * @param {{ name: string, website: string, address: string, licenseTypes: string[] }} company
  * @returns {Promise<{ contacts: Array, companyInfo: object, linkedInUrl: string|null }>}
@@ -337,12 +447,19 @@ async function enrichWithBrowser(company) {
     console.log(`[enricher/scraper] LinkedIn: ${linkedInUrl || 'not found'}`);
     await delay(SEARCH_DELAY);
 
-    // 2. Find compliance contacts
+    // 2. Scrape LinkedIn company page metadata (no login needed)
+    let linkedInMeta = null;
+    if (linkedInUrl) {
+      linkedInMeta = await scrapeLinkedInCompanyPage(page, linkedInUrl);
+      await delay(SEARCH_DELAY);
+    }
+
+    // 3. Find compliance contacts
     const contacts = await findComplianceContacts(page, company.name);
     console.log(`[enricher/scraper] 找到 ${contacts.length} 个联系人`);
     await delay(SEARCH_DELAY);
 
-    // 3. Scrape company website
+    // 4. Scrape company website
     const websiteInfo = await scrapeCompanyWebsite(page, company.website);
 
     // Merge website team members as additional contacts (lower priority)
@@ -366,13 +483,28 @@ async function enrichWithBrowser(company) {
       return true;
     });
 
+    // Merge companyInfo: LinkedIn metadata takes priority, then website info
+    const companyInfo = {
+      description: linkedInMeta?.description || websiteInfo.description || null,
+      industry: linkedInMeta?.industry || null,
+      followers: linkedInMeta?.followers || null,
+      headcount: linkedInMeta?.headcount || null,
+      logoUrl: linkedInMeta?.logoUrl || null,
+      specialties: linkedInMeta?.specialties || null,
+      linkedInUrl,
+      teamSize: websiteInfo.teamMembers?.length || 0,
+    };
+
+    // Remove null fields for cleaner output
+    for (const key of Object.keys(companyInfo)) {
+      if (companyInfo[key] === null || companyInfo[key] === undefined) {
+        delete companyInfo[key];
+      }
+    }
+
     return {
       contacts: uniqueContacts,
-      companyInfo: {
-        description: websiteInfo.description,
-        linkedInUrl,
-        teamSize: websiteInfo.teamMembers?.length || 0,
-      },
+      companyInfo,
       linkedInUrl,
     };
   } finally {
@@ -390,6 +522,7 @@ export {
   findCompanyLinkedIn,
   findComplianceContacts,
   scrapeCompanyWebsite,
+  scrapeLinkedInCompanyPage,
   parseLinkedInResult,
   normalizeCompanyName,
   resultMentionsCompany,
