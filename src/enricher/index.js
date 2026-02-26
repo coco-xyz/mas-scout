@@ -98,34 +98,28 @@ async function enrichCompany(companyName, website) {
  * @returns {Promise<{ contacts: Array, companyInfo: object }>}
  */
 async function enrich(company) {
-  // Try browser-based enrichment first
   try {
     console.log(`[enricher] 尝试浏览器抓取: ${company.name}`);
     const result = await enrichWithBrowser(company);
+    const contactCount = result.contacts.length;
 
-    if (result.contacts.length > 0) {
-      console.log(`[enricher] 浏览器抓取成功: ${result.contacts.length} 个联系人`);
-      return {
-        contacts: rankContacts(result.contacts),
-        companyInfo: result.companyInfo,
-      };
+    if (contactCount > 0) {
+      console.log(`[enricher] 浏览器抓取成功: ${contactCount} 个联系人`);
+    } else {
+      console.log('[enricher] 浏览器抓取无联系人结果');
     }
 
-    console.log('[enricher] 浏览器抓取无结果，使用 mock 数据');
+    return {
+      contacts: rankContacts(result.contacts),
+      companyInfo: result.companyInfo,
+    };
   } catch (err) {
-    console.log(`[enricher] 浏览器不可用 (${err.message})，使用 mock 数据`);
+    console.log(`[enricher] 浏览器不可用 (${err.message})`);
+    return {
+      contacts: [],
+      companyInfo: null,
+    };
   }
-
-  // Fallback to mock
-  const [contacts, companyInfo] = await Promise.all([
-    searchContacts(company.name),
-    enrichCompany(company.name, company.website),
-  ]);
-
-  return {
-    contacts: rankContacts(contacts),
-    companyInfo,
-  };
 }
 
 export { enrich, searchContacts, rankContacts, enrichCompany, MOCK_CONTACTS, MOCK_COMPANY_INFO };
