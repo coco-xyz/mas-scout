@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAS Scout — Licensed Institutions Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #232733;
+      --border: #2d3140;
+      --text: #e4e6f0;
+      --text-dim: #8b8fa3;
+      --accent: #6366f1;
+      --accent-light: #818cf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --blue: #3b82f6;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .header h1 span {
+      color: var(--text-dim);
+      font-weight: 400;
+      font-size: 14px;
+      margin-left: 8px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* Stats cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: border-color 0.2s;
+    }
+
+    .stat-card:hover {
+      border-color: var(--accent);
+    }
+
+    .stat-card.clickable {
+      cursor: pointer;
+    }
+
+    .stat-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-value.cms { color: var(--blue); }
+    .stat-value.mpi { color: var(--amber); }
+    .stat-value.spi { color: var(--green); }
+
+    .stat-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 250px;
+      position: relative;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px 16px 10px 40px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-box input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .search-box svg {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+    }
+
+    .filter-pills {
+      display: flex;
+      gap: 8px;
+    }
+
+    .pill {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .pill:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .pill.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .result-count {
+      font-size: 13px;
+      color: var(--text-dim);
+      padding: 8px 0;
+    }
+
+    /* Table */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    thead {
+      background: var(--surface2);
+      position: sticky;
+      top: 0;
+    }
+
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    th:hover {
+      color: var(--text);
+    }
+
+    th .sort-arrow {
+      margin-left: 4px;
+      opacity: 0.3;
+    }
+
+    th.sorted .sort-arrow {
+      opacity: 1;
+      color: var(--accent);
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: var(--surface2);
+    }
+
+    .name-cell {
+      font-weight: 500;
+      max-width: 280px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      margin: 2px 2px;
+      white-space: nowrap;
+    }
+
+    .badge.cms {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--blue);
+    }
+
+    .badge.mpi {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--amber);
+    }
+
+    .badge.spi {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+    }
+
+    .badge.new {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+    }
+
+    .website-link {
+      color: var(--accent-light);
+      text-decoration: none;
+    }
+
+    .website-link:hover {
+      text-decoration: underline;
+    }
+
+    .activity-list {
+      font-size: 12px;
+      color: var(--text-dim);
+      max-width: 300px;
+    }
+
+    .address-cell {
+      font-size: 12px;
+      color: var(--text-dim);
+      max-width: 200px;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .pagination button {
+      padding: 6px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .pagination button:hover {
+      border-color: var(--accent);
+    }
+
+    .pagination button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .page-buttons {
+      display: flex;
+      gap: 4px;
+    }
+
+    /* Loading */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 80px;
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 10px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Empty state */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-dim);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container { padding: 16px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .stat-value { font-size: 24px; }
+      .controls { flex-direction: column; }
+      .search-box { min-width: 100%; }
+    }
+
+    /* Export button */
+    .export-btn {
+      padding: 8px 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .export-btn:hover {
+      border-color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">MS</div>
+      <h1>MAS Scout <span>Licensed Institutions Dashboard</span></h1>
+    </div>
+    <div class="header-right">
+      <span class="status-dot"></span>
+      <span id="lastUpdate">Loading...</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card clickable" data-filter="">
+        <div class="stat-label">Total Institutions</div>
+        <div class="stat-value" id="statTotal">—</div>
+        <div class="stat-sub">Across all license types</div>
+      </div>
+      <div class="stat-card clickable" data-filter="Capital Markets Services">
+        <div class="stat-label">Capital Markets (CMS)</div>
+        <div class="stat-value cms" id="statCms">—</div>
+        <div class="stat-sub">CMS Licensees</div>
+      </div>
+      <div class="stat-card clickable" data-filter="Major Payment Institution">
+        <div class="stat-label">Major Payment (MPI)</div>
+        <div class="stat-value mpi" id="statMpi">—</div>
+        <div class="stat-sub">Major Payment Institutions</div>
+      </div>
+      <div class="stat-card clickable" data-filter="Standard Payment Institution">
+        <div class="stat-label">Standard Payment (SPI)</div>
+        <div class="stat-value spi" id="statSpi">—</div>
+        <div class="stat-sub">Standard Payment Institutions</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="search-box">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="searchInput" placeholder="Search by name, address, or activity...">
+      </div>
+      <div class="filter-pills">
+        <button class="pill active" data-license="">All</button>
+        <button class="pill" data-license="Capital Markets Services">CMS</button>
+        <button class="pill" data-license="Major Payment Institution">MPI</button>
+        <button class="pill" data-license="Standard Payment Institution">SPI</button>
+      </div>
+      <button class="export-btn" id="exportBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        Export CSV
+      </button>
+    </div>
+
+    <div class="result-count" id="resultCount"></div>
+
+    <div class="table-wrap">
+      <div id="loadingState" class="loading">
+        <div class="spinner"></div> Loading institution data...
+      </div>
+      <div id="tableContainer" style="display:none">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th data-sort="name">Name <span class="sort-arrow">↕</span></th>
+                <th data-sort="licenseTypes">License <span class="sort-arrow">↕</span></th>
+                <th data-sort="activities">Activities <span class="sort-arrow">↕</span></th>
+                <th data-sort="address">Address <span class="sort-arrow">↕</span></th>
+                <th>Website</th>
+                <th>Phone</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <span id="pageInfo">Page 1 of 1</span>
+          <div class="page-buttons">
+            <button id="prevBtn" disabled>← Previous</button>
+            <button id="nextBtn">Next →</button>
+          </div>
+        </div>
+      </div>
+      <div id="emptyState" class="empty" style="display:none">
+        No institutions match your search.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PAGE_SIZE = 50;
+    let allData = [];
+    let filtered = [];
+    let page = 0;
+    let sortKey = 'name';
+    let sortDir = 1;
+    let activeFilter = '';
+    let searchTimeout = null;
+
+    const $ = id => document.getElementById(id);
+
+    async function loadData() {
+      try {
+        const resp = await fetch('/api/institutions');
+        const data = await resp.json();
+        allData = data.institutions || [];
+
+        $('statTotal').textContent = data.total.toLocaleString();
+        $('lastUpdate').textContent = `Last scan: ${new Date(data.timestamp).toLocaleString()}`;
+
+        // Count by type
+        let cms = 0, mpi = 0, spi = 0;
+        for (const inst of allData) {
+          for (const lt of inst.licenseTypes || []) {
+            if (lt.includes('Capital Markets')) cms++;
+            else if (lt.includes('Major Payment')) mpi++;
+            else if (lt.includes('Standard Payment')) spi++;
+          }
+        }
+        $('statCms').textContent = cms.toLocaleString();
+        $('statMpi').textContent = mpi.toLocaleString();
+        $('statSpi').textContent = spi.toLocaleString();
+
+        applyFilters();
+        $('loadingState').style.display = 'none';
+        $('tableContainer').style.display = '';
+      } catch (err) {
+        $('loadingState').innerHTML = `<span style="color:var(--red)">Failed to load data: ${err.message}</span>`;
+      }
+    }
+
+    function applyFilters() {
+      const q = $('searchInput').value.toLowerCase().trim();
+
+      filtered = allData.filter(inst => {
+        if (activeFilter && !(inst.licenseTypes || []).some(lt => lt.includes(activeFilter))) {
+          return false;
+        }
+        if (q) {
+          const haystack = [
+            inst.name,
+            inst.address,
+            ...(inst.activities || []),
+            ...(inst.licenseTypes || []),
+            inst.website,
+          ].join(' ').toLowerCase();
+          return haystack.includes(q);
+        }
+        return true;
+      });
+
+      // Sort
+      filtered.sort((a, b) => {
+        let va = '', vb = '';
+        if (sortKey === 'licenseTypes' || sortKey === 'activities') {
+          va = (a[sortKey] || []).join(', ');
+          vb = (b[sortKey] || []).join(', ');
+        } else {
+          va = a[sortKey] || '';
+          vb = b[sortKey] || '';
+        }
+        return va.localeCompare(vb) * sortDir;
+      });
+
+      page = 0;
+      renderTable();
+    }
+
+    function renderTable() {
+      const start = page * PAGE_SIZE;
+      const end = start + PAGE_SIZE;
+      const slice = filtered.slice(start, end);
+
+      $('resultCount').textContent = `Showing ${Math.min(start + 1, filtered.length)}–${Math.min(end, filtered.length)} of ${filtered.length.toLocaleString()} institutions`;
+
+      if (filtered.length === 0) {
+        $('tableContainer').style.display = 'none';
+        $('emptyState').style.display = '';
+        return;
+      }
+
+      $('tableContainer').style.display = '';
+      $('emptyState').style.display = 'none';
+
+      const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+      $('pageInfo').textContent = `Page ${page + 1} of ${totalPages}`;
+      $('prevBtn').disabled = page === 0;
+      $('nextBtn').disabled = page >= totalPages - 1;
+
+      $('tableBody').innerHTML = slice.map(inst => {
+        const badges = (inst.licenseTypes || []).map(lt => {
+          let cls = 'cms';
+          if (lt.includes('Major Payment')) cls = 'mpi';
+          else if (lt.includes('Standard Payment')) cls = 'spi';
+          const short = lt.includes('Capital Markets') ? 'CMS' : lt.includes('Major Payment') ? 'MPI' : 'SPI';
+          return `<span class="badge ${cls}">${short}</span>`;
+        }).join('');
+
+        const activities = (inst.activities || []).join(', ');
+        const website = inst.website
+          ? `<a class="website-link" href="${inst.website.startsWith('http') ? inst.website : 'https://' + inst.website}" target="_blank" rel="noopener">${inst.website}</a>`
+          : '—';
+
+        return `<tr>
+          <td class="name-cell">${esc(inst.name)}</td>
+          <td>${badges}</td>
+          <td class="activity-list">${esc(activities) || '—'}</td>
+          <td class="address-cell">${esc(inst.address) || '—'}</td>
+          <td>${website}</td>
+          <td>${esc(inst.phone) || '—'}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function esc(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Search with debounce
+    $('searchInput').addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(applyFilters, 200);
+    });
+
+    // Filter pills
+    document.querySelectorAll('.pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.license;
+        applyFilters();
+      });
+    });
+
+    // Stat cards click
+    document.querySelectorAll('.stat-card.clickable').forEach(card => {
+      card.addEventListener('click', () => {
+        const filter = card.dataset.filter;
+        activeFilter = filter;
+        document.querySelectorAll('.pill').forEach(b => {
+          b.classList.toggle('active', b.dataset.license === filter);
+        });
+        document.querySelectorAll('.stat-card').forEach(c => {
+          c.classList.toggle('active', c.dataset.filter === filter);
+        });
+        applyFilters();
+      });
+    });
+
+    // Sort
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sort;
+        if (sortKey === key) {
+          sortDir *= -1;
+        } else {
+          sortKey = key;
+          sortDir = 1;
+        }
+        document.querySelectorAll('th').forEach(t => t.classList.remove('sorted'));
+        th.classList.add('sorted');
+        applyFilters();
+      });
+    });
+
+    // Pagination
+    $('prevBtn').addEventListener('click', () => { page--; renderTable(); });
+    $('nextBtn').addEventListener('click', () => { page++; renderTable(); });
+
+    // CSV Export
+    $('exportBtn').addEventListener('click', () => {
+      const headers = ['Name', 'License Types', 'Activities', 'Address', 'Website', 'Phone'];
+      const rows = filtered.map(inst => [
+        inst.name,
+        (inst.licenseTypes || []).join('; '),
+        (inst.activities || []).join('; '),
+        inst.address || '',
+        inst.website || '',
+        inst.phone || '',
+      ]);
+
+      const csv = [headers, ...rows]
+        .map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `mas-scout-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+    });
+
+    // Keyboard shortcut
+    document.addEventListener('keydown', e => {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+        if (document.activeElement !== $('searchInput')) {
+          e.preventDefault();
+          $('searchInput').focus();
+        }
+      }
+      if (e.key === 'Escape') {
+        $('searchInput').blur();
+        $('searchInput').value = '';
+        applyFilters();
+      }
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
