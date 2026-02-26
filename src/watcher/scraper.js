@@ -1,28 +1,35 @@
 /**
  * MAS FID 抓取器
  *
- * 策略：用 print 视图（?count=0）一次拉全量机构列表，
- * 然后按 category 过滤。避免分页爬取。
+ * MAS FID 是 SPA，内容通过 AJAX 加载。
+ * 直接调用 /fid/custom/printpartial 获取全量 HTML 表格。
+ *
+ * 表头字段：
+ * No. | Organisation Name | Address | Phone Number | Website |
+ * Sector | Licence Type/Status | Activity/Business Type | Sub-Activity/Product
  */
 
 import { load } from 'cheerio';
 import { MAS_FID_BASE, WATCHED_CATEGORIES } from '../shared/config.js';
 
+const PRINT_ENDPOINT = `${MAS_FID_BASE}/custom/printpartial`;
+
 /**
  * 抓取指定类别的机构列表
  * @param {string} sector
  * @param {string} category
- * @returns {Promise<Array<{name: string, detailUrl: string, fid: string, licenseType: string, address: string, website: string, phone: string}>>}
+ * @returns {Promise<Array>}
  */
 async function scrapeCategory(sector, category) {
   const params = new URLSearchParams({ sector, category });
-  const url = `${MAS_FID_BASE}/institution/print?${params}`;
+  const url = `${PRINT_ENDPOINT}?${params}`;
 
   console.log(`[scraper] 抓取: ${category}`);
   const resp = await fetch(url, {
     headers: {
       'User-Agent': 'MAS-Scout/0.1 (compliance monitoring)',
       'Accept': 'text/html',
+      'X-Requested-With': 'XMLHttpRequest',
     },
   });
 
@@ -31,70 +38,86 @@ async function scrapeCategory(sector, category) {
   }
 
   const html = await resp.text();
-  return parseInstitutionList(html, category);
+  return parsePrintTable(html);
 }
 
 /**
- * 解析机构列表 HTML
+ * 解析 printpartial 返回的 HTML 表格
+ * @param {string} html
+ * @returns {Array<{name: string, address: string, phone: string, website: string, sector: string, licenseType: string, activity: string, subActivity: string}>}
  */
-function parseInstitutionList(html, licenseType) {
+function parsePrintTable(html) {
   const $ = load(html);
   const institutions = [];
 
-  // FID 列表页每个机构是一个 card / row
-  // print 视图通常是表格或简洁列表
-  // 根据调研结果，每个机构有名称、地址、电话、网站等字段
+  $('table.fid-print-table tr').each((i, row) => {
+    // 跳过表头
+    if (i === 0) return;
 
-  // 尝试多种选择器适配 MAS FID 的 HTML 结构
-  const selectors = [
-    '.institution-item',
-    '.search-result-item',
-    '.result-item',
-    'table tbody tr',
-    '.entity-info',
-  ];
+    const cells = $(row).find('td');
+    if (cells.length < 8) return;
 
-  // 通用 approach：找所有包含 /fid/institution/detail/ 链接的容器
-  $('a[href*="/fid/institution/detail/"]').each((_, el) => {
-    const $link = $(el);
-    const href = $link.attr('href') || '';
-    const name = $link.text().trim();
+    const name = $(cells[1]).text().trim();
+    const address = $(cells[2]).text().trim();
+    const phone = $(cells[3]).text().trim();
+    const website = $(cells[4]).text().trim();
+    const sector = $(cells[5]).text().trim();
+    const licenseType = $(cells[6]).text().trim();
+    const activity = $(cells[7]).text().trim();
+    const subActivity = cells.length > 8 ? $(cells[8]).text().trim() : '';
 
-    if (!name || !href) return;
-
-    // 从 URL 提取 FID（数字 ID）
-    const fidMatch = href.match(/\/detail\/(\d+)-/);
-    const fid = fidMatch ? fidMatch[1] : '';
-
-    // 向上找容器获取其他字段
-    const $container = $link.closest('div, tr, li, section').first();
-    const containerText = $container.text();
-
-    // 提取地址（通常包含 SINGAPORE 或邮编）
-    const addressMatch = containerText.match(/(\d+[^]*?SINGAPORE\s*\d{6})/i);
-    const address = addressMatch ? addressMatch[1].replace(/\s+/g, ' ').trim() : '';
-
-    // 提取网站
-    const websiteLink = $container.find('a[href^="http"]').not($link).first();
-    const website = websiteLink.attr('href') || '';
-
-    // 提取电话
-    const phoneMatch = containerText.match(/(?:\+65\s?)?(\d{8})/);
-    const phone = phoneMatch ? phoneMatch[0] : '';
+    if (!name) return;
 
     institutions.push({
       name,
-      fid,
-      detailUrl: href.startsWith('http') ? href : `${MAS_FID_BASE}${href.replace('/fid', '')}`,
-      licenseType,
       address,
-      website,
       phone,
+      website,
+      sector,
+      licenseType,
+      activity,
+      subActivity,
     });
   });
 
-  console.log(`[scraper] ${licenseType}: 找到 ${institutions.length} 家机构`);
+  console.log(`[scraper] 解析到 ${institutions.length} 条记录`);
   return institutions;
+}
+
+/**
+ * 同一公司可能因多个 activity 出现多行，合并它们
+ * @param {Array} rows
+ * @returns {Array}
+ */
+function mergeRows(rows) {
+  const map = new Map();
+
+  for (const row of rows) {
+    const key = row.name;
+    if (map.has(key)) {
+      const existing = map.get(key);
+      // 合并 activity
+      if (row.activity && !existing.activities.includes(row.activity)) {
+        existing.activities.push(row.activity);
+      }
+      // 合并 licenseType
+      if (row.licenseType && !existing.licenseTypes.includes(row.licenseType)) {
+        existing.licenseTypes.push(row.licenseType);
+      }
+    } else {
+      map.set(key, {
+        name: row.name,
+        address: row.address,
+        phone: row.phone,
+        website: row.website,
+        sector: row.sector,
+        licenseTypes: [row.licenseType].filter(Boolean),
+        activities: [row.activity].filter(Boolean),
+      });
+    }
+  }
+
+  return [...map.values()];
 }
 
 /**
@@ -102,12 +125,12 @@ function parseInstitutionList(html, licenseType) {
  * @returns {Promise<Array>}
  */
 async function scrapeAll() {
-  const allInstitutions = [];
+  const allRows = [];
 
   for (const { sector, category } of WATCHED_CATEGORIES) {
     try {
-      const list = await scrapeCategory(sector, category);
-      allInstitutions.push(...list);
+      const rows = await scrapeCategory(sector, category);
+      allRows.push(...rows);
       // 避免请求过快
       await new Promise(r => setTimeout(r, 2000));
     } catch (err) {
@@ -115,22 +138,9 @@ async function scrapeAll() {
     }
   }
 
-  // 按 FID 去重（同一机构可能持有多个牌照）
-  const seen = new Map();
-  for (const inst of allInstitutions) {
-    const key = inst.fid || inst.name;
-    if (seen.has(key)) {
-      // 合并牌照类型
-      const existing = seen.get(key);
-      if (!existing.licenseType.includes(inst.licenseType)) {
-        existing.licenseType += `, ${inst.licenseType}`;
-      }
-    } else {
-      seen.set(key, { ...inst });
-    }
-  }
-
-  return [...seen.values()];
+  const merged = mergeRows(allRows);
+  console.log(`[scraper] 总计: ${allRows.length} 行 → 合并为 ${merged.length} 家机构`);
+  return merged;
 }
 
-export { scrapeAll, scrapeCategory, parseInstitutionList };
+export { scrapeAll, scrapeCategory, parsePrintTable, mergeRows };

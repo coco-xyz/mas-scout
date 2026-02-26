@@ -21,24 +21,24 @@ function generateMarkdownReport(diff, meta) {
   lines.push('');
 
   if (diff.added.length > 0) {
-    lines.push('## 🆕 新增牌照持有者');
+    lines.push('## 新增牌照持有者');
     lines.push('');
     for (const inst of diff.added) {
       lines.push(`### ${inst.name}`);
-      lines.push(`- **牌照类型：** ${inst.licenseType}`);
+      if (inst.licenseTypes?.length) lines.push(`- **牌照类型：** ${inst.licenseTypes.join(', ')}`);
+      if (inst.activities?.length) lines.push(`- **受监管活动：** ${inst.activities.join(', ')}`);
       if (inst.address) lines.push(`- **地址：** ${inst.address}`);
       if (inst.website) lines.push(`- **网站：** ${inst.website}`);
       if (inst.phone) lines.push(`- **电话：** ${inst.phone}`);
-      if (inst.detailUrl) lines.push(`- **FID 链接：** ${inst.detailUrl}`);
       lines.push('');
     }
   }
 
   if (diff.removed.length > 0) {
-    lines.push('## ❌ 移除的机构');
+    lines.push('## 移除的机构');
     lines.push('');
     for (const inst of diff.removed) {
-      lines.push(`- ${inst.name} (${inst.licenseType})`);
+      lines.push(`- ${inst.name} (${inst.licenseTypes?.join(', ') || '未知'})`);
     }
     lines.push('');
   }
@@ -65,7 +65,7 @@ function generateTextSummary(diff) {
   if (diff.added.length > 0) {
     parts.push(`新增 ${diff.added.length} 家牌照持有者：`);
     for (const inst of diff.added) {
-      parts.push(`  • ${inst.name} (${inst.licenseType})`);
+      parts.push(`  - ${inst.name} (${inst.licenseTypes?.join(', ') || '未知'})`);
     }
   }
   if (diff.removed.length > 0) {

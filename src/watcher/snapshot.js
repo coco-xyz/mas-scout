@@ -65,11 +65,11 @@ function loadLatestSnapshot() {
  * @returns {{ added: Array, removed: Array }}
  */
 function diffSnapshots(current, previous) {
-  const prevSet = new Set(previous.map(i => i.fid || i.name));
-  const currSet = new Set(current.map(i => i.fid || i.name));
+  const prevNames = new Set(previous.map(i => i.name));
+  const currNames = new Set(current.map(i => i.name));
 
-  const added = current.filter(i => !prevSet.has(i.fid || i.name));
-  const removed = previous.filter(i => !currSet.has(i.fid || i.name));
+  const added = current.filter(i => !prevNames.has(i.name));
+  const removed = previous.filter(i => !currNames.has(i.name));
 
   return { added, removed };
 }
