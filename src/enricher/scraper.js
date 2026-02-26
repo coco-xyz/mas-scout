@@ -27,6 +27,30 @@ function normalizeCompanyName(name) {
 }
 
 /**
+ * Check if a DDG result (title + snippet) mentions the target company.
+ * Extracts keywords from the company name and checks for partial matches.
+ * "HASHKEY CAPITAL" → checks for "hashkey" in the result text.
+ */
+function resultMentionsCompany(title, snippet, companyName) {
+  const text = `${title} ${snippet}`.toLowerCase();
+  const clean = normalizeCompanyName(companyName).toLowerCase();
+
+  // Extract significant keywords (skip short/generic words)
+  const skipWords = new Set(['pte', 'ltd', 'the', 'and', 'of', 'for', 'group', 'holdings', 'services', 'technology', 'global', 'international', 'asia', 'pacific', 'capital', 'management', 'financial', 'digital', 'asset']);
+  const keywords = clean.split(/\s+/).filter(w => w.length >= 3 && !skipWords.has(w));
+
+  // Need at least one significant keyword to match
+  if (keywords.length === 0) {
+    // All words are generic — check the full cleaned name instead
+    return text.includes(clean);
+  }
+
+  // Check if the most distinctive keyword (longest) appears in the text
+  const sorted = keywords.sort((a, b) => b.length - a.length);
+  return sorted.some(kw => text.includes(kw));
+}
+
+/**
  * Connect to existing Chrome via CDP
  * @returns {Promise<{browser: object, context: object}>}
  */
@@ -127,6 +151,7 @@ async function findComplianceContacts(page, companyName) {
 
   for (const r of results) {
     if (!r.url.includes('linkedin.com/in/')) continue;
+    if (!resultMentionsCompany(r.title, r.snippet, companyName)) continue;
 
     const parsed = parseLinkedInResult(r.title, r.snippet, companyName);
     if (parsed) {
@@ -147,6 +172,8 @@ async function findComplianceContacts(page, companyName) {
 
     for (const r of broadResults) {
       if (!r.url.includes('linkedin.com/in/')) continue;
+      if (!resultMentionsCompany(r.title, r.snippet, companyName)) continue;
+
       const parsed = parseLinkedInResult(r.title, r.snippet, companyName);
       if (parsed) {
         contacts.push({
@@ -365,6 +392,7 @@ export {
   scrapeCompanyWebsite,
   parseLinkedInResult,
   normalizeCompanyName,
+  resultMentionsCompany,
   connect,
   webSearch,
 };
