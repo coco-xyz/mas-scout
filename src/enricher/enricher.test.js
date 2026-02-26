@@ -1,5 +1,6 @@
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert';
+import { normalizeCompanyName, resultMentionsCompany, parseLinkedInResult } from './scraper.js';
 
 describe('rankContacts', () => {
   let rankContacts;
@@ -131,5 +132,66 @@ describe('enrichCompany', () => {
     assert.ok('fundingStage' in result, 'result should have fundingStage');
     assert.ok(Array.isArray(result.techStack), 'techStack should be an array');
     assert.ok(Array.isArray(result.recentNews), 'recentNews should be an array');
+  });
+});
+
+describe('normalizeCompanyName', () => {
+  it('should strip PTE. LTD.', () => {
+    assert.strictEqual(normalizeCompanyName('HASHKEY DIGITAL ASSET GROUP PTE. LTD.'), 'HASHKEY DIGITAL ASSET GROUP');
+  });
+
+  it('should strip PRIVATE LIMITED', () => {
+    assert.strictEqual(normalizeCompanyName('ABC PRIVATE LIMITED'), 'ABC');
+  });
+
+  it('should strip (SINGAPORE)', () => {
+    assert.strictEqual(normalizeCompanyName('ABC (SINGAPORE) PTE LTD'), 'ABC');
+  });
+
+  it('should handle names without legal suffixes', () => {
+    assert.strictEqual(normalizeCompanyName('OpenAI'), 'OpenAI');
+  });
+});
+
+describe('resultMentionsCompany', () => {
+  it('should match when company keyword is in title', () => {
+    assert.strictEqual(
+      resultMentionsCompany('HashKey Group CEO', 'Some snippet', 'HASHKEY DIGITAL ASSET GROUP PTE. LTD.'),
+      true
+    );
+  });
+
+  it('should not match unrelated result', () => {
+    assert.strictEqual(
+      resultMentionsCompany('Random Person at Google', 'Works at Google', 'HASHKEY DIGITAL ASSET GROUP PTE. LTD.'),
+      false
+    );
+  });
+});
+
+describe('parseLinkedInResult', () => {
+  it('should parse standard LinkedIn title format', () => {
+    const result = parseLinkedInResult(
+      'Jane Chen - CCO - ABC Pte Ltd | LinkedIn',
+      '',
+      'ABC Pte Ltd'
+    );
+    assert.strictEqual(result.name, 'Jane Chen');
+    assert.strictEqual(result.title, 'CCO');
+  });
+
+  it('should parse name-only title and extract from snippet', () => {
+    const result = parseLinkedInResult(
+      'Jane Chen | LinkedIn',
+      'Chief Compliance Officer at ABC.',
+      'ABC Pte Ltd'
+    );
+    assert.strictEqual(result.name, 'Jane Chen');
+    assert.ok(result.title.includes('Compliance'));
+  });
+
+  it('should return null for empty title', () => {
+    const result = parseLinkedInResult('', '', 'Test');
+    assert.strictEqual(result, null);
   });
 });
