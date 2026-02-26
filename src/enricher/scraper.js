@@ -30,9 +30,26 @@ function normalizeCompanyName(name) {
  * Check if a DDG result (title + snippet) mentions the target company.
  * Extracts keywords from the company name and checks for partial matches.
  * "HASHKEY CAPITAL" → checks for "hashkey" in the result text.
+ *
+ * To avoid false positives from contact names (e.g., "Ariana Lobo" matching
+ * "Ariana Investment"), the check strips the contact's name from the text
+ * before matching.
  */
 function resultMentionsCompany(title, snippet, companyName) {
-  const text = `${title} ${snippet}`.toLowerCase();
+  // Extract the contact name from SERP title (first part before separator)
+  const contactName = title.replace(/\s*[\|–-]\s*LinkedIn\s*$/i, '').split(/\s*[\|–-]\s*/)[0]?.trim()?.toLowerCase() || '';
+
+  // Remove the contact name from the text to avoid name↔company collisions
+  let text = `${title} ${snippet}`.toLowerCase();
+  if (contactName.length >= 3) {
+    // Remove each word of the contact name individually
+    for (const namePart of contactName.split(/\s+/)) {
+      if (namePart.length >= 3) {
+        text = text.replaceAll(namePart, ' ');
+      }
+    }
+  }
+
   const clean = normalizeCompanyName(companyName).toLowerCase();
 
   // Extract significant keywords (skip short/generic words)
@@ -154,14 +171,18 @@ async function findComplianceContacts(page, companyName) {
     if (!resultMentionsCompany(r.title, r.snippet, companyName)) continue;
 
     const parsed = parseLinkedInResult(r.title, r.snippet, companyName);
-    if (parsed) {
-      contacts.push({
-        name: parsed.name,
-        title: parsed.title,
-        linkedInUrl: r.url.split('?')[0],
-        source: 'ddg-serp',
-      });
+    if (!parsed) continue;
+    // Verify employer matches target company (filters Apollo→JPMorgan mismatches)
+    if (!verifyContactCompany(parsed, companyName)) {
+      console.log(`[enricher/scraper] 跳过 ${parsed.name} — employer "${parsed.employer}" 不匹配 "${companyName}"`);
+      continue;
     }
+    contacts.push({
+      name: parsed.name,
+      title: parsed.title,
+      linkedInUrl: r.url.split('?')[0],
+      source: 'ddg-serp',
+    });
   }
 
   // If no compliance-specific results, search broader management
@@ -175,14 +196,17 @@ async function findComplianceContacts(page, companyName) {
       if (!resultMentionsCompany(r.title, r.snippet, companyName)) continue;
 
       const parsed = parseLinkedInResult(r.title, r.snippet, companyName);
-      if (parsed) {
-        contacts.push({
-          name: parsed.name,
-          title: parsed.title,
-          linkedInUrl: r.url.split('?')[0],
-          source: 'ddg-serp-broad',
-        });
+      if (!parsed) continue;
+      if (!verifyContactCompany(parsed, companyName)) {
+        console.log(`[enricher/scraper] 跳过 ${parsed.name} — employer "${parsed.employer}" 不匹配 "${companyName}"`);
+        continue;
       }
+      contacts.push({
+        name: parsed.name,
+        title: parsed.title,
+        linkedInUrl: r.url.split('?')[0],
+        source: 'ddg-serp-broad',
+      });
     }
   }
 
@@ -190,7 +214,7 @@ async function findComplianceContacts(page, companyName) {
 }
 
 /**
- * Parse LinkedIn SERP result to extract name and title
+ * Parse LinkedIn SERP result to extract name, title, and employer company
  * Common formats:
  *   "Jane Chen - CCO - ABC Pte Ltd | LinkedIn"
  *   "Jane Chen – Chief Compliance Officer – ABC | LinkedIn"
@@ -199,7 +223,7 @@ async function findComplianceContacts(page, companyName) {
  * @param {string} title
  * @param {string} snippet
  * @param {string} companyName
- * @returns {{name: string, title: string}|null}
+ * @returns {{name: string, title: string, employer: string|null}|null}
  */
 function parseLinkedInResult(title, snippet, companyName) {
   // Remove " | LinkedIn" suffix
@@ -215,7 +239,12 @@ function parseLinkedInResult(title, snippet, companyName) {
 
   // Try to find title from parts
   let jobTitle = '';
-  if (parts.length >= 2) {
+  let employer = null;
+  if (parts.length >= 3) {
+    // Format: "Name - Title - Company"
+    jobTitle = parts[1].trim();
+    employer = parts[2].trim();
+  } else if (parts.length === 2) {
     jobTitle = parts[1].trim();
   }
 
@@ -226,10 +255,56 @@ function parseLinkedInResult(title, snippet, companyName) {
     if (snippetTitle) jobTitle = snippetTitle;
   }
 
+  // Try to extract employer from snippet if not found in title
+  if (!employer) {
+    employer = extractEmployerFromSnippet(snippet);
+  }
+
   // Skip if no useful title found
   if (!jobTitle) jobTitle = 'Unknown Title';
 
-  return { name, title: jobTitle };
+  return { name, title: jobTitle, employer };
+}
+
+/**
+ * Extract employer company name from SERP snippet
+ * LinkedIn snippets often contain "... at CompanyName" or "CompanyName · ..."
+ */
+function extractEmployerFromSnippet(snippet) {
+  if (!snippet) return null;
+
+  // "Title at Company" pattern
+  const atMatch = snippet.match(/(?:at|@)\s+([A-Z][^.·,]+?)(?:\s*[.·,]|$)/i);
+  if (atMatch) return atMatch[1].trim();
+
+  // "Company · Title" or "Company | Title" pattern
+  const dotMatch = snippet.match(/^([A-Z][^·|]+?)\s*[·|]\s*/);
+  if (dotMatch) return dotMatch[1].trim();
+
+  return null;
+}
+
+/**
+ * Verify that a parsed contact's employer matches the target company.
+ * Returns true if employer is unknown (benefit of the doubt) or matches.
+ */
+function verifyContactCompany(parsed, targetCompanyName) {
+  if (!parsed.employer) return true; // no employer info — allow through
+
+  const employer = parsed.employer.toLowerCase();
+  const target = normalizeCompanyName(targetCompanyName).toLowerCase();
+
+  // Extract significant keywords from target
+  const skipWords = new Set(['pte', 'ltd', 'the', 'and', 'of', 'for', 'group', 'holdings', 'services', 'technology', 'global', 'international', 'asia', 'pacific', 'capital', 'management', 'financial', 'digital', 'asset']);
+  const keywords = target.split(/\s+/).filter(w => w.length >= 3 && !skipWords.has(w));
+
+  if (keywords.length === 0) {
+    return employer.includes(target);
+  }
+
+  // Check if employer contains the distinctive keyword
+  const sorted = keywords.sort((a, b) => b.length - a.length);
+  return sorted.some(kw => employer.includes(kw));
 }
 
 /**
@@ -524,6 +599,8 @@ export {
   scrapeCompanyWebsite,
   scrapeLinkedInCompanyPage,
   parseLinkedInResult,
+  extractEmployerFromSnippet,
+  verifyContactCompany,
   normalizeCompanyName,
   resultMentionsCompany,
   connect,
