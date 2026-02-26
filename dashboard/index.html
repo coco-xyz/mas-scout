@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MAS Scout — Licensed Institutions Dashboard</title>
+  <title>MAS Scout — Dashboard</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -88,6 +88,62 @@
       display: inline-block;
     }
 
+    /* Tab navigation */
+    .tab-nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 0;
+      padding: 0 24px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      padding: 12px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-dim);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-light);
+      border-bottom-color: var(--accent);
+    }
+
+    .tab-btn .tab-count {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-size: 11px;
+      margin-left: 6px;
+      background: var(--surface2);
+      color: var(--text-dim);
+    }
+
+    .tab-btn.active .tab-count {
+      background: rgba(99, 102, 241, 0.2);
+      color: var(--accent-light);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
     .container {
       max-width: 1400px;
       margin: 0 auto;
@@ -97,7 +153,7 @@
     /* Stats cards */
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 16px;
       margin-bottom: 24px;
     }
@@ -325,6 +381,46 @@
       color: var(--red);
     }
 
+    .badge.enriched {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+    }
+
+    .badge.pending {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--amber);
+    }
+
+    .badge.failed {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+    }
+
+    .badge.skipped {
+      background: rgba(139, 143, 163, 0.15);
+      color: var(--text-dim);
+    }
+
+    .badge.sent {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+    }
+
+    .badge.ready {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--blue);
+    }
+
+    .badge.pending_review {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--amber);
+    }
+
+    .badge.draft {
+      background: rgba(139, 143, 163, 0.15);
+      color: var(--text-dim);
+    }
+
     .website-link {
       color: var(--accent-light);
       text-decoration: none;
@@ -412,15 +508,6 @@
       color: var(--text-dim);
     }
 
-    /* Responsive */
-    @media (max-width: 768px) {
-      .container { padding: 16px; }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .stat-value { font-size: 24px; }
-      .controls { flex-direction: column; }
-      .search-box { min-width: 100%; }
-    }
-
     /* Export button */
     .export-btn {
       padding: 8px 16px;
@@ -438,13 +525,116 @@
     .export-btn:hover {
       border-color: var(--accent);
     }
+
+    /* Pipeline sequence dots */
+    .seq-steps {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .seq-step {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      border: 2px solid var(--border);
+      color: var(--text-dim);
+      position: relative;
+    }
+
+    .seq-step.sent {
+      border-color: var(--green);
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+    }
+
+    .seq-step.ready {
+      border-color: var(--blue);
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--blue);
+    }
+
+    .seq-step.pending_review {
+      border-color: var(--amber);
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--amber);
+    }
+
+    .seq-step.draft {
+      border-color: var(--border);
+      background: transparent;
+      color: var(--text-dim);
+    }
+
+    .seq-connector {
+      width: 16px;
+      height: 2px;
+      background: var(--border);
+    }
+
+    /* Confidence bar */
+    .confidence-bar {
+      width: 60px;
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 3px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    /* Report view */
+    .report-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      font-size: 14px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+    }
+
+    .report-content h1 { font-size: 24px; margin-bottom: 16px; color: var(--text); }
+    .report-content h2 { font-size: 18px; margin: 24px 0 12px; color: var(--accent-light); }
+    .report-content h3 { font-size: 15px; margin: 16px 0 8px; color: var(--text); }
+
+    .report-meta {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container { padding: 16px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .stat-value { font-size: 24px; }
+      .controls { flex-direction: column; }
+      .search-box { min-width: 100%; }
+      .tab-nav { padding: 0 16px; }
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="header-left">
       <div class="logo">MS</div>
-      <h1>MAS Scout <span>Licensed Institutions Dashboard</span></h1>
+      <h1>MAS Scout <span>Pipeline Dashboard</span></h1>
     </div>
     <div class="header-right">
       <span class="status-dot"></span>
@@ -452,88 +642,243 @@
     </div>
   </div>
 
-  <div class="container">
-    <div class="stats-grid" id="statsGrid">
-      <div class="stat-card clickable" data-filter="">
-        <div class="stat-label">Total Institutions</div>
-        <div class="stat-value" id="statTotal">—</div>
-        <div class="stat-sub">Across all license types</div>
-      </div>
-      <div class="stat-card clickable" data-filter="Capital Markets Services">
-        <div class="stat-label">Capital Markets (CMS)</div>
-        <div class="stat-value cms" id="statCms">—</div>
-        <div class="stat-sub">CMS Licensees</div>
-      </div>
-      <div class="stat-card clickable" data-filter="Major Payment Institution">
-        <div class="stat-label">Major Payment (MPI)</div>
-        <div class="stat-value mpi" id="statMpi">—</div>
-        <div class="stat-sub">Major Payment Institutions</div>
-      </div>
-      <div class="stat-card clickable" data-filter="Standard Payment Institution">
-        <div class="stat-label">Standard Payment (SPI)</div>
-        <div class="stat-value spi" id="statSpi">—</div>
-        <div class="stat-sub">Standard Payment Institutions</div>
-      </div>
-    </div>
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="institutions">Institutions <span class="tab-count" id="tabCountInst">-</span></button>
+    <button class="tab-btn" data-tab="enrichment">Enrichment <span class="tab-count" id="tabCountEnrich">-</span></button>
+    <button class="tab-btn" data-tab="outreach">Outreach Pipeline <span class="tab-count" id="tabCountOutreach">-</span></button>
+    <button class="tab-btn" data-tab="report">Daily Report</button>
+  </nav>
 
-    <div class="controls">
-      <div class="search-box">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="text" id="searchInput" placeholder="Search by name, address, or activity...">
-      </div>
-      <div class="filter-pills">
-        <button class="pill active" data-license="">All</button>
-        <button class="pill" data-license="Capital Markets Services">CMS</button>
-        <button class="pill" data-license="Major Payment Institution">MPI</button>
-        <button class="pill" data-license="Standard Payment Institution">SPI</button>
-      </div>
-      <button class="export-btn" id="exportBtn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-        Export CSV
-      </button>
-    </div>
-
-    <div class="result-count" id="resultCount"></div>
-
-    <div class="table-wrap">
-      <div id="loadingState" class="loading">
-        <div class="spinner"></div> Loading institution data...
-      </div>
-      <div id="tableContainer" style="display:none">
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th data-sort="name">Name <span class="sort-arrow">↕</span></th>
-                <th data-sort="licenseTypes">License <span class="sort-arrow">↕</span></th>
-                <th data-sort="activities">Activities <span class="sort-arrow">↕</span></th>
-                <th data-sort="address">Address <span class="sort-arrow">↕</span></th>
-                <th>Website</th>
-                <th>Phone</th>
-              </tr>
-            </thead>
-            <tbody id="tableBody"></tbody>
-          </table>
+  <!-- ===================== TAB 1: INSTITUTIONS ===================== -->
+  <div id="tab-institutions" class="tab-panel active">
+    <div class="container">
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card clickable" data-filter="">
+          <div class="stat-label">Total Institutions</div>
+          <div class="stat-value" id="statTotal">—</div>
+          <div class="stat-sub">Across all license types</div>
         </div>
-        <div class="pagination">
-          <span id="pageInfo">Page 1 of 1</span>
-          <div class="page-buttons">
-            <button id="prevBtn" disabled>← Previous</button>
-            <button id="nextBtn">Next →</button>
+        <div class="stat-card clickable" data-filter="Capital Markets Services">
+          <div class="stat-label">Capital Markets (CMS)</div>
+          <div class="stat-value cms" id="statCms">—</div>
+          <div class="stat-sub">CMS Licensees</div>
+        </div>
+        <div class="stat-card clickable" data-filter="Major Payment Institution">
+          <div class="stat-label">Major Payment (MPI)</div>
+          <div class="stat-value mpi" id="statMpi">—</div>
+          <div class="stat-sub">Major Payment Institutions</div>
+        </div>
+        <div class="stat-card clickable" data-filter="Standard Payment Institution">
+          <div class="stat-label">Standard Payment (SPI)</div>
+          <div class="stat-value spi" id="statSpi">—</div>
+          <div class="stat-sub">Standard Payment Institutions</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="search-box">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" id="searchInput" placeholder="Search by name, address, or activity...">
+        </div>
+        <div class="filter-pills">
+          <button class="pill active" data-license="">All</button>
+          <button class="pill" data-license="Capital Markets Services">CMS</button>
+          <button class="pill" data-license="Major Payment Institution">MPI</button>
+          <button class="pill" data-license="Standard Payment Institution">SPI</button>
+        </div>
+        <button class="export-btn" id="exportBtn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Export CSV
+        </button>
+      </div>
+
+      <div class="result-count" id="resultCount"></div>
+
+      <div class="table-wrap">
+        <div id="loadingState" class="loading">
+          <div class="spinner"></div> Loading institution data...
+        </div>
+        <div id="tableContainer" style="display:none">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th data-sort="name">Name <span class="sort-arrow">↕</span></th>
+                  <th data-sort="licenseTypes">License <span class="sort-arrow">↕</span></th>
+                  <th data-sort="activities">Activities <span class="sort-arrow">↕</span></th>
+                  <th data-sort="address">Address <span class="sort-arrow">↕</span></th>
+                  <th>Website</th>
+                  <th>Phone</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span id="pageInfo">Page 1 of 1</span>
+            <div class="page-buttons">
+              <button id="prevBtn" disabled>← Previous</button>
+              <button id="nextBtn">Next →</button>
+            </div>
           </div>
         </div>
-      </div>
-      <div id="emptyState" class="empty" style="display:none">
-        No institutions match your search.
+        <div id="emptyState" class="empty" style="display:none">
+          No institutions match your search.
+        </div>
       </div>
     </div>
   </div>
 
+  <!-- ===================== TAB 2: ENRICHMENT ===================== -->
+  <div id="tab-enrichment" class="tab-panel">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Enriched</div>
+          <div class="stat-value" id="enrichStatDone" style="color:var(--green)">—</div>
+          <div class="stat-sub">Contacts found</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Pending</div>
+          <div class="stat-value" id="enrichStatPending" style="color:var(--amber)">—</div>
+          <div class="stat-sub">Awaiting enrichment</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Failed</div>
+          <div class="stat-value" id="enrichStatFailed" style="color:var(--red)">—</div>
+          <div class="stat-sub">Needs retry</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Skipped</div>
+          <div class="stat-value" id="enrichStatSkipped" style="color:var(--text-dim)">—</div>
+          <div class="stat-sub">No change</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="search-box">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" id="enrichSearch" placeholder="Search companies...">
+        </div>
+        <div class="filter-pills">
+          <button class="pill active" data-estatus="">All</button>
+          <button class="pill" data-estatus="enriched">Enriched</button>
+          <button class="pill" data-estatus="pending">Pending</button>
+          <button class="pill" data-estatus="failed">Failed</button>
+        </div>
+      </div>
+
+      <div class="result-count" id="enrichResultCount"></div>
+
+      <div class="table-wrap">
+        <div id="enrichLoading" class="loading">
+          <div class="spinner"></div> Loading enrichment data...
+        </div>
+        <div id="enrichTable" style="display:none">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>License</th>
+                  <th>Status</th>
+                  <th>Contacts</th>
+                  <th>Headcount</th>
+                  <th>Enriched At</th>
+                </tr>
+              </thead>
+              <tbody id="enrichBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TAB 3: OUTREACH PIPELINE ===================== -->
+  <div id="tab-outreach" class="tab-panel">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Prospects</div>
+          <div class="stat-value" id="outreachStatTotal" style="color:var(--accent-light)">—</div>
+          <div class="stat-sub">In pipeline</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Steps Sent</div>
+          <div class="stat-value" id="outreachStatSent" style="color:var(--green)">—</div>
+          <div class="stat-sub">Delivered</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Needs Review</div>
+          <div class="stat-value" id="outreachStatReview" style="color:var(--amber)">—</div>
+          <div class="stat-sub">Low confidence</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Draft</div>
+          <div class="stat-value" id="outreachStatDraft" style="color:var(--text-dim)">—</div>
+          <div class="stat-sub">Not started</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div id="outreachLoading" class="loading">
+          <div class="spinner"></div> Loading outreach pipeline...
+        </div>
+        <div id="outreachTable" style="display:none">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Contact</th>
+                  <th>Company</th>
+                  <th>License</th>
+                  <th>Confidence</th>
+                  <th>Sequence Progress</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="outreachBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TAB 4: DAILY REPORT ===================== -->
+  <div id="tab-report" class="tab-panel">
+    <div class="container">
+      <div class="report-meta">
+        <span id="reportDate">Loading...</span>
+      </div>
+      <div id="reportLoading" class="loading">
+        <div class="spinner"></div> Loading report...
+      </div>
+      <div id="reportContent" class="report-content" style="display:none"></div>
+    </div>
+  </div>
+
   <script>
-    // Detect base path (works under reverse proxy /mas-scout/ or standalone /)
+    // === INIT ===
     const BASE = window.location.pathname.replace(/\/$/, '');
     const API = path => `${BASE}${path}`;
+    const $ = id => document.getElementById(id);
+    const esc = str => str ? str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
 
+    // === TAB SWITCHING ===
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ========================================================================
+    // TAB 1: INSTITUTIONS
+    // ========================================================================
     const PAGE_SIZE = 50;
     let allData = [];
     let filtered = [];
@@ -543,9 +888,7 @@
     let activeFilter = '';
     let searchTimeout = null;
 
-    const $ = id => document.getElementById(id);
-
-    async function loadData() {
+    async function loadInstitutions() {
       try {
         const resp = await fetch(API('/api/institutions'));
         const data = await resp.json();
@@ -553,8 +896,8 @@
 
         $('statTotal').textContent = data.total.toLocaleString();
         $('lastUpdate').textContent = `Last scan: ${new Date(data.timestamp).toLocaleString()}`;
+        $('tabCountInst').textContent = data.total.toLocaleString();
 
-        // Count by type
         let cms = 0, mpi = 0, spi = 0;
         for (const inst of allData) {
           for (const lt of inst.licenseTypes || []) {
@@ -577,37 +920,20 @@
 
     function applyFilters() {
       const q = $('searchInput').value.toLowerCase().trim();
-
       filtered = allData.filter(inst => {
-        if (activeFilter && !(inst.licenseTypes || []).some(lt => lt.includes(activeFilter))) {
-          return false;
-        }
+        if (activeFilter && !(inst.licenseTypes || []).some(lt => lt.includes(activeFilter))) return false;
         if (q) {
-          const haystack = [
-            inst.name,
-            inst.address,
-            ...(inst.activities || []),
-            ...(inst.licenseTypes || []),
-            inst.website,
-          ].join(' ').toLowerCase();
+          const haystack = [inst.name, inst.address, ...(inst.activities || []), ...(inst.licenseTypes || []), inst.website].join(' ').toLowerCase();
           return haystack.includes(q);
         }
         return true;
       });
-
-      // Sort
       filtered.sort((a, b) => {
         let va = '', vb = '';
-        if (sortKey === 'licenseTypes' || sortKey === 'activities') {
-          va = (a[sortKey] || []).join(', ');
-          vb = (b[sortKey] || []).join(', ');
-        } else {
-          va = a[sortKey] || '';
-          vb = b[sortKey] || '';
-        }
+        if (sortKey === 'licenseTypes' || sortKey === 'activities') { va = (a[sortKey] || []).join(', '); vb = (b[sortKey] || []).join(', '); }
+        else { va = a[sortKey] || ''; vb = b[sortKey] || ''; }
         return va.localeCompare(vb) * sortDir;
       });
-
       page = 0;
       renderTable();
     }
@@ -616,17 +942,10 @@
       const start = page * PAGE_SIZE;
       const end = start + PAGE_SIZE;
       const slice = filtered.slice(start, end);
-
       $('resultCount').textContent = `Showing ${Math.min(start + 1, filtered.length)}–${Math.min(end, filtered.length)} of ${filtered.length.toLocaleString()} institutions`;
 
-      if (filtered.length === 0) {
-        $('tableContainer').style.display = 'none';
-        $('emptyState').style.display = '';
-        return;
-      }
-
-      $('tableContainer').style.display = '';
-      $('emptyState').style.display = 'none';
+      if (filtered.length === 0) { $('tableContainer').style.display = 'none'; $('emptyState').style.display = ''; return; }
+      $('tableContainer').style.display = ''; $('emptyState').style.display = 'none';
 
       const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
       $('pageInfo').textContent = `Page ${page + 1} of ${totalPages}`;
@@ -641,118 +960,232 @@
           const short = lt.includes('Capital Markets') ? 'CMS' : lt.includes('Major Payment') ? 'MPI' : 'SPI';
           return `<span class="badge ${cls}">${short}</span>`;
         }).join('');
-
         const activities = (inst.activities || []).join(', ');
-        const website = inst.website
-          ? `<a class="website-link" href="${inst.website.startsWith('http') ? inst.website : 'https://' + inst.website}" target="_blank" rel="noopener">${inst.website}</a>`
-          : '—';
-
-        return `<tr>
-          <td class="name-cell">${esc(inst.name)}</td>
-          <td>${badges}</td>
-          <td class="activity-list">${esc(activities) || '—'}</td>
-          <td class="address-cell">${esc(inst.address) || '—'}</td>
-          <td>${website}</td>
-          <td>${esc(inst.phone) || '—'}</td>
-        </tr>`;
+        const website = inst.website ? `<a class="website-link" href="${inst.website.startsWith('http') ? inst.website : 'https://' + inst.website}" target="_blank" rel="noopener">${esc(inst.website)}</a>` : '—';
+        return `<tr><td class="name-cell">${esc(inst.name)}</td><td>${badges}</td><td class="activity-list">${esc(activities) || '—'}</td><td class="address-cell">${esc(inst.address) || '—'}</td><td>${website}</td><td>${esc(inst.phone) || '—'}</td></tr>`;
       }).join('');
     }
 
-    function esc(str) {
-      if (!str) return '';
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    // Search with debounce
-    $('searchInput').addEventListener('input', () => {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(applyFilters, 200);
-    });
-
-    // Filter pills
-    document.querySelectorAll('.pill').forEach(btn => {
+    $('searchInput').addEventListener('input', () => { clearTimeout(searchTimeout); searchTimeout = setTimeout(applyFilters, 200); });
+    document.querySelectorAll('.pill[data-license]').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.pill[data-license]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         activeFilter = btn.dataset.license;
         applyFilters();
       });
     });
-
-    // Stat cards click
     document.querySelectorAll('.stat-card.clickable').forEach(card => {
       card.addEventListener('click', () => {
-        const filter = card.dataset.filter;
-        activeFilter = filter;
-        document.querySelectorAll('.pill').forEach(b => {
-          b.classList.toggle('active', b.dataset.license === filter);
-        });
-        document.querySelectorAll('.stat-card').forEach(c => {
-          c.classList.toggle('active', c.dataset.filter === filter);
-        });
+        activeFilter = card.dataset.filter;
+        document.querySelectorAll('.pill[data-license]').forEach(b => b.classList.toggle('active', b.dataset.license === activeFilter));
+        document.querySelectorAll('.stat-card').forEach(c => c.classList.toggle('active', c.dataset.filter === activeFilter));
         applyFilters();
       });
     });
-
-    // Sort
     document.querySelectorAll('th[data-sort]').forEach(th => {
       th.addEventListener('click', () => {
         const key = th.dataset.sort;
-        if (sortKey === key) {
-          sortDir *= -1;
-        } else {
-          sortKey = key;
-          sortDir = 1;
-        }
+        if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
         document.querySelectorAll('th').forEach(t => t.classList.remove('sorted'));
         th.classList.add('sorted');
         applyFilters();
       });
     });
-
-    // Pagination
     $('prevBtn').addEventListener('click', () => { page--; renderTable(); });
     $('nextBtn').addEventListener('click', () => { page++; renderTable(); });
-
-    // CSV Export
     $('exportBtn').addEventListener('click', () => {
       const headers = ['Name', 'License Types', 'Activities', 'Address', 'Website', 'Phone'];
-      const rows = filtered.map(inst => [
-        inst.name,
-        (inst.licenseTypes || []).join('; '),
-        (inst.activities || []).join('; '),
-        inst.address || '',
-        inst.website || '',
-        inst.phone || '',
-      ]);
-
-      const csv = [headers, ...rows]
-        .map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(','))
-        .join('\n');
-
+      const rows = filtered.map(inst => [inst.name, (inst.licenseTypes || []).join('; '), (inst.activities || []).join('; '), inst.address || '', inst.website || '', inst.phone || '']);
+      const csv = [headers, ...rows].map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(',')).join('\n');
       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `mas-scout-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
+      a.href = URL.createObjectURL(blob); a.download = `mas-scout-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
     });
 
-    // Keyboard shortcut
-    document.addEventListener('keydown', e => {
-      if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
-        if (document.activeElement !== $('searchInput')) {
-          e.preventDefault();
-          $('searchInput').focus();
+    // ========================================================================
+    // TAB 2: ENRICHMENT
+    // ========================================================================
+    let enrichData = [];
+    let enrichFiltered = [];
+    let enrichStatusFilter = '';
+
+    async function loadEnrichment() {
+      try {
+        const resp = await fetch(API('/api/enrichment'));
+        const data = await resp.json();
+        enrichData = data.enrichment || [];
+
+        $('enrichStatDone').textContent = data.counts.enriched;
+        $('enrichStatPending').textContent = data.counts.pending;
+        $('enrichStatFailed').textContent = data.counts.failed;
+        $('enrichStatSkipped').textContent = data.counts.skipped;
+        $('tabCountEnrich').textContent = data.total;
+
+        applyEnrichFilters();
+        $('enrichLoading').style.display = 'none';
+        $('enrichTable').style.display = '';
+      } catch (err) {
+        $('enrichLoading').innerHTML = `<span style="color:var(--red)">Failed to load: ${err.message}</span>`;
+      }
+    }
+
+    function applyEnrichFilters() {
+      const q = $('enrichSearch').value.toLowerCase().trim();
+      enrichFiltered = enrichData.filter(e => {
+        if (enrichStatusFilter && e.status !== enrichStatusFilter) return false;
+        if (q && !e.company.toLowerCase().includes(q)) return false;
+        return true;
+      });
+      renderEnrichTable();
+    }
+
+    function renderEnrichTable() {
+      $('enrichResultCount').textContent = `${enrichFiltered.length} companies`;
+      $('enrichBody').innerHTML = enrichFiltered.map(e => {
+        const licenseBadges = (e.licenseTypes || []).map(lt => {
+          const cls = lt.includes('Capital Markets') ? 'cms' : lt.includes('Major Payment') ? 'mpi' : 'spi';
+          const short = lt.includes('Capital Markets') ? 'CMS' : lt.includes('Major Payment') ? 'MPI' : 'SPI';
+          return `<span class="badge ${cls}">${short}</span>`;
+        }).join('');
+
+        const contactsList = e.contacts.length > 0
+          ? e.contacts.map(c => `${esc(c.name)} <span style="color:var(--text-dim)">(${esc(c.title)})</span>`).join('<br>')
+          : '<span style="color:var(--text-dim)">—</span>';
+
+        const headcount = e.companyInfo?.headcount ? e.companyInfo.headcount.toLocaleString() : '—';
+        const enrichedAt = e.enrichedAt ? new Date(e.enrichedAt).toLocaleDateString() : '—';
+
+        return `<tr>
+          <td class="name-cell">${esc(e.company)}</td>
+          <td>${licenseBadges}</td>
+          <td><span class="badge ${e.status}">${e.status}</span></td>
+          <td>${contactsList}</td>
+          <td>${headcount}</td>
+          <td style="color:var(--text-dim);font-size:12px">${enrichedAt}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    $('enrichSearch').addEventListener('input', () => { clearTimeout(searchTimeout); searchTimeout = setTimeout(applyEnrichFilters, 200); });
+    document.querySelectorAll('.pill[data-estatus]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.pill[data-estatus]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        enrichStatusFilter = btn.dataset.estatus;
+        applyEnrichFilters();
+      });
+    });
+
+    // ========================================================================
+    // TAB 3: OUTREACH PIPELINE
+    // ========================================================================
+    async function loadOutreach() {
+      try {
+        const resp = await fetch(API('/api/outreach'));
+        const data = await resp.json();
+
+        $('outreachStatTotal').textContent = data.summary.total;
+        $('outreachStatSent').textContent = data.summary.sent || 0;
+        $('outreachStatReview').textContent = data.summary.pending_review || 0;
+        $('outreachStatDraft').textContent = data.summary.draft || 0;
+        $('tabCountOutreach').textContent = data.summary.total;
+
+        const channelIcons = { email: 'E', linkedin_connect: 'Li', linkedin_message: 'Li', };
+        const channelLabels = { email: 'Email', linkedin_connect: 'Connect', linkedin_message: 'Message', };
+
+        $('outreachBody').innerHTML = (data.prospects || []).map(p => {
+          const confPct = (p.confidence * 100).toFixed(0);
+          const confColor = p.confidence >= 0.7 ? 'var(--green)' : p.confidence >= 0.5 ? 'var(--amber)' : 'var(--red)';
+
+          const seqHtml = p.sequence.map((s, i) => {
+            const icon = channelIcons[s.channel] || '?';
+            const dot = `<div class="seq-step ${s.status}" title="Day ${s.day}: ${channelLabels[s.channel] || s.channel} (${s.status})">${icon}</div>`;
+            const conn = i < p.sequence.length - 1 ? '<div class="seq-connector"></div>' : '';
+            return dot + conn;
+          }).join('');
+
+          const overallStatus = p.requiresReview
+            ? '<span class="badge pending_review">Needs Review</span>'
+            : '<span class="badge ready">Active</span>';
+
+          const licenseBadge = p.licenseType.includes('Capital Markets') ? '<span class="badge cms">CMS</span>'
+            : p.licenseType.includes('Major Payment') ? '<span class="badge mpi">MPI</span>'
+            : '<span class="badge spi">SPI</span>';
+
+          return `<tr>
+            <td>
+              <div style="font-weight:500">${esc(p.contact.name)}</div>
+              <div style="font-size:12px;color:var(--text-dim)">${esc(p.contact.title)}</div>
+            </td>
+            <td class="name-cell">${esc(p.company)}</td>
+            <td>${licenseBadge}</td>
+            <td>
+              <div class="confidence-bar"><div class="confidence-fill" style="width:${confPct}%;background:${confColor}"></div></div>
+              <span style="font-size:12px;color:${confColor}">${confPct}%</span>
+            </td>
+            <td><div class="seq-steps">${seqHtml}</div></td>
+            <td>${overallStatus}</td>
+          </tr>`;
+        }).join('');
+
+        $('outreachLoading').style.display = 'none';
+        $('outreachTable').style.display = '';
+      } catch (err) {
+        $('outreachLoading').innerHTML = `<span style="color:var(--red)">Failed to load: ${err.message}</span>`;
+      }
+    }
+
+    // ========================================================================
+    // TAB 4: DAILY REPORT
+    // ========================================================================
+    async function loadReport() {
+      try {
+        const resp = await fetch(API('/api/report'));
+        const data = await resp.json();
+
+        if (data.report && data.report !== 'No report available.') {
+          // Simple markdown rendering
+          let html = data.report
+            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+            .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/^> (.+)$/gm, '<div style="color:var(--text-dim);font-style:italic;padding-left:16px;border-left:3px solid var(--border)">$1</div>')
+            .replace(/^- (.+)$/gm, '<div style="padding-left:16px">- $1</div>');
+          $('reportContent').innerHTML = html;
+          $('reportDate').textContent = `Latest report`;
+        } else {
+          $('reportContent').innerHTML = '<div class="empty">No report available yet. The watcher generates reports after each daily scan.</div>';
         }
+
+        $('reportLoading').style.display = 'none';
+        $('reportContent').style.display = '';
+      } catch (err) {
+        $('reportLoading').innerHTML = `<span style="color:var(--red)">Failed to load: ${err.message}</span>`;
+      }
+    }
+
+    // === KEYBOARD SHORTCUT ===
+    document.addEventListener('keydown', e => {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        const activePanel = document.querySelector('.tab-panel.active');
+        const input = activePanel?.querySelector('input[type="text"]');
+        if (input) input.focus();
       }
       if (e.key === 'Escape') {
-        $('searchInput').blur();
-        $('searchInput').value = '';
+        document.querySelectorAll('input[type="text"]').forEach(i => { i.blur(); i.value = ''; });
         applyFilters();
+        applyEnrichFilters();
       }
     });
 
-    loadData();
+    // === LOAD ALL DATA ===
+    loadInstitutions();
+    loadEnrichment();
+    loadOutreach();
+    loadReport();
   </script>
 
   <!-- ClawMark feedback/issue widget -->
