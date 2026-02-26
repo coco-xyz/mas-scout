@@ -530,6 +530,10 @@
   </div>
 
   <script>
+    // Detect base path (works under reverse proxy /mas-scout/ or standalone /)
+    const BASE = window.location.pathname.replace(/\/$/, '');
+    const API = path => `${BASE}${path}`;
+
     const PAGE_SIZE = 50;
     let allData = [];
     let filtered = [];
@@ -543,7 +547,7 @@
 
     async function loadData() {
       try {
-        const resp = await fetch('/api/institutions');
+        const resp = await fetch(API('/api/institutions'));
         const data = await resp.json();
         allData = data.institutions || [];
 
@@ -749,6 +753,19 @@
     });
 
     loadData();
+  </script>
+
+  <!-- ClawMark feedback/issue widget -->
+  <script type="module">
+    import ClawMark from '/api/clawmark/widget/index.js';
+    const cm = new ClawMark({
+      api:   '/api/clawmark',
+      app:   'mas-scout',
+      user:  'guest',
+      theme: 'dark',
+    });
+    cm.use(ClawMark.Fab);
+    cm.mount();
   </script>
 </body>
 </html>
