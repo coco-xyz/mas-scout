@@ -10,6 +10,7 @@
  *   node src/pipeline.js                        # enrich new institutions from latest diff
  *   node src/pipeline.js --all                  # enrich all institutions (full run)
  *   node src/pipeline.js --all --limit 20       # enrich first 20 institutions
+ *   node src/pipeline.js --all --force          # re-enrich all (even already enriched)
  *   node src/pipeline.js --company "Name"       # enrich a single company
  */
 
@@ -202,6 +203,14 @@ async function main() {
 
   for (let i = 0; i < targets.length; i++) {
     const inst = targets[i];
+
+    // Skip already-enriched companies (unless --force flag)
+    const existing = enrichedMap.get(inst.name);
+    if (existing && existing.status === 'enriched' && !args.includes('--force')) {
+      console.log(`[pipeline] [${i + 1}/${targets.length}] Skipping (already enriched): ${inst.name}`);
+      continue;
+    }
+
     console.log(`[pipeline] [${i + 1}/${targets.length}] Enriching: ${inst.name}`);
 
     // Enrich
