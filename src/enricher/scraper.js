@@ -58,10 +58,10 @@ async function webSearch(page, query) {
   const results = await page.evaluate(() => {
     const items = [];
 
-    // DDG result container — use a single authoritative selector to avoid duplicates
-    const resultEls = document.querySelectorAll('[data-testid="result"]')
-      || document.querySelectorAll('.react-results--main article')
-      || document.querySelectorAll('li[data-layout="organic"]');
+    // DDG result container — try selectors in order, fallback if empty
+    let resultEls = document.querySelectorAll('[data-testid="result"]');
+    if (!resultEls.length) resultEls = document.querySelectorAll('.react-results--main article');
+    if (!resultEls.length) resultEls = document.querySelectorAll('li[data-layout="organic"]');
 
     for (const el of resultEls) {
       // Use data-testid selectors for the actual external links (not DDG internal links)
